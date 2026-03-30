@@ -159,8 +159,6 @@ header {
 .hero {
   padding: 120px 48px 56px;
   max-width: 1120px; margin: 0 auto;
-  display: grid; grid-template-columns: 1fr auto;
-  align-items: end; gap: 40px;
 }
 .hero-content {}
 .hero-eyebrow {
@@ -189,20 +187,7 @@ header {
   color: var(--ink-muted); line-height: 1.85;
   max-width: 400px;
 }
-.hero-stats {
-  display: flex; flex-direction: column; gap: 16px;
-  padding-left: 40px; border-left: 1px solid var(--border);
-}
-.hero-stat-num {
-  font-family: var(--font-display);
-  font-size: 28px; font-weight: 400;
-  color: var(--green); line-height: 1;
-}
-.hero-stat-label {
-  font-family: var(--font-mono); font-size: 10px;
-  color: var(--ink-muted); letter-spacing: 0.1em;
-  text-transform: uppercase; margin-top: 3px;
-}
+
 
 /* ═══════════════════════════════════════════
    MAIN LAYOUT
@@ -680,20 +665,7 @@ input[type="file"] { display: none; }
     <h1>空屋照片<br><em>秒變</em>夢想家居</h1>
     <p class="hero-desc">上傳空屋照，選擇裝潢風格，AI 自動生成專業樣品屋短影片，讓每一個物件都能打動買家。</p>
   </div>
-  <div class="hero-stats">
-    <div>
-      <div class="hero-stat-num">6 × 6</div>
-      <div class="hero-stat-label">風格 × 空間</div>
-    </div>
-    <div>
-      <div class="hero-stat-num">2 min</div>
-      <div class="hero-stat-label">平均生成時間</div>
-    </div>
-    <div>
-      <div class="hero-stat-num">NT$14</div>
-      <div class="hero-stat-label">每次生成成本</div>
-    </div>
-  </div>
+
 </section>
 
 <div class="main-wrap">
@@ -1023,6 +995,11 @@ function processImage(file){
 }
 
 function runPreCheck(){
+  // 未登入不跑 Vision，節省 API 費用
+  if(!currentUser){
+    checkReady();
+    return;
+  }
   const pc=document.getElementById('precheck');
   const pb=document.getElementById('precheckBody');
   const btn=document.getElementById('genBtn');
