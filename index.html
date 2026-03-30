@@ -16,7 +16,6 @@
   window.falReady = true;
 </script>
 <style>
-
 :root{--gold:#C9A84C;--gold-light:#E8D08A;--dark:#0A0A0A;--dark-2:#111111;--dark-3:#1A1A1A;--dark-4:#242424;--text:#E8E4DC;--text-muted:#7A7670;--border:rgba(201,168,76,0.2);--au-gold:#C19A6B;--au-gold-dim:rgba(193,154,107,0.12);--au-border:rgba(193,154,107,0.18);}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--dark);color:var(--text);font-family:'Noto Serif TC',serif;min-height:100vh;overflow-x:hidden;}
@@ -108,6 +107,7 @@ input[type="file"]{display:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 @keyframes pulse-gold{0%,100%{opacity:1;}50%{opacity:0.5;}}
 .pulsing{animation:pulse-gold 1.5s infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
 /* ── Auth Overlay ── */
 .auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:9000;padding:1rem;}
 .auth-overlay.open{display:flex;}
@@ -153,13 +153,11 @@ input[type="file"]{display:none;}
 .au-close{position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--text-muted);font-size:1rem;cursor:pointer;padding:0.2rem;transition:color 0.2s;}
 .au-close:hover{color:var(--text);}
 .au-spin{display:inline-block;width:12px;height:12px;border:1.5px solid rgba(193,154,107,0.3);border-top-color:var(--au-gold);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:0.4rem;}
-@keyframes spin{to{transform:rotate(360deg)}}
 .upload-dz{border:1px dashed var(--au-border);padding:1.4rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:0.9rem;}
 .upload-dz:hover{border-color:rgba(193,154,107,0.45);background:var(--au-gold-dim);}
 .upload-dz-icon{font-size:1.3rem;margin-bottom:0.4rem;opacity:0.55;}
 .upload-dz-text{font-size:0.76rem;color:var(--text-muted);font-family:'DM Mono',monospace;}
 .upload-dz-sub{font-size:0.66rem;color:#4a4540;margin-top:0.2rem;font-family:'DM Mono',monospace;}
-/* 用戶下拉選單 */
 .user-menu{position:relative;}
 .user-menu-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:#141414;border:1px solid var(--au-border);min-width:160px;display:none;z-index:200;}
 .user-menu-dropdown::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--au-gold),transparent);}
@@ -169,8 +167,23 @@ input[type="file"]{display:none;}
 .user-menu-item.danger{color:#c46b6b;}
 .user-menu-item.danger:hover{color:#e88;background:rgba(196,107,107,0.05);}
 .user-menu-sep{height:1px;background:var(--au-border);margin:4px 0;}
+/* ── Vision Precheck ── */
+.vision-loading{display:flex;align-items:center;gap:8px;color:var(--gold);font-family:'DM Mono',monospace;font-size:11px;}
+.vision-spin{display:inline-block;width:12px;height:12px;border:1.5px solid rgba(201,168,76,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;}
+.vision-pass{border-color:rgba(107,196,138,0.3) !important;background:rgba(107,196,138,0.05) !important;}
+.vision-pass .precheck-title{color:#6bc48a !important;}
+.vision-warn{border-color:rgba(196,164,107,0.4) !important;background:rgba(196,164,107,0.06) !important;}
+.vision-warn .precheck-title{color:#c4a46b !important;}
+.vision-fail{border-color:rgba(196,107,107,0.4) !important;background:rgba(196,107,107,0.06) !important;}
+.vision-fail .precheck-title{color:#c46b6b !important;}
+.vision-score{display:inline-block;padding:1px 7px;font-size:10px;margin-left:6px;}
+.score-pass{background:rgba(107,196,138,0.15);color:#6bc48a;border:1px solid rgba(107,196,138,0.3);}
+.score-warn{background:rgba(196,164,107,0.15);color:#c4a46b;border:1px solid rgba(196,164,107,0.3);}
+.score-fail{background:rgba(196,107,107,0.15);color:#c46b6b;border:1px solid rgba(196,107,107,0.3);}
+.vision-items{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+.vision-item{display:flex;align-items:flex-start;gap:6px;font-size:11px;line-height:1.6;}
+.vi-icon{flex-shrink:0;}
 @media(max-width:768px){header{padding:14px 20px;}.hero{padding:100px 20px 40px;}.main-wrap{padding:0 20px;}.two-col{grid-template-columns:1fr;}.panel,.full-col{padding:28px 20px;}.result-grid{grid-template-columns:1fr;}.disclaimer{padding:0 20px;}.au-header{padding:1.8rem 1.6rem 0;}.au-tabs{margin:1.4rem 1.6rem 0;}.au-body{padding:1.6rem 1.6rem 1.8rem;}}
-
 </style>
 </head>
 <body>
@@ -311,8 +324,6 @@ input[type="file"]{display:none;}
     </div>
     <div class="au-body">
       <div class="au-msg" id="auMsg"></div>
-
-      <!-- 登入 -->
       <div id="auPanel-login">
         <div class="oauth-grp">
           <button class="oauth-btn" onclick="oauthLogin('google')">
@@ -334,8 +345,6 @@ input[type="file"]{display:none;}
           <a style="font-size:0.72rem;color:var(--text-muted);cursor:pointer;border-bottom:1px solid var(--au-border);font-family:'DM Mono',monospace;" onclick="doResetPassword()">忘記密碼？</a>
         </div>
       </div>
-
-      <!-- 註冊 -->
       <div id="auPanel-register" style="display:none">
         <div class="oauth-grp">
           <button class="oauth-btn" onclick="oauthLogin('google')">
@@ -356,12 +365,10 @@ input[type="file"]{display:none;}
           <div class="au-notice-text">已持有房仲執照？可申請免費試用。<a onclick="auTab('trial')">了解試用方案 →</a></div>
         </div>
       </div>
-
-      <!-- 試用申請 -->
       <div id="auPanel-trial" style="display:none">
         <div class="au-notice" style="margin-bottom:1.2rem;">
           <div class="au-notice-title">房仲專業試用計畫</div>
-          <div class="au-notice-text">提供有效房仲執照或名片，通過審核後獲得 <strong style="color:var(--au-gold)">10 點</strong>免費試用額度。審核時間約 1–2 個工作天。</div>
+          <div class="au-notice-text">提供有效房仲執照或名片，通過審核後獲得 <strong style="color:var(--au-gold)">60 點</strong>免費試用額度（7天有效）。審核時間約 1–2 個工作天。</div>
         </div>
         <label class="au-label">電子郵件</label>
         <input class="au-input" type="email" id="trialEmail" placeholder="your@email.com">
@@ -381,288 +388,129 @@ input[type="file"]{display:none;}
 </div>
 
 <script>
-
-// ================================================================
-// ⚙️ FAL API KEY
-// ================================================================
 const FAL_API_KEY = "";
-
-// ── SUPABASE INIT ──
 const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+let currentUser=null,currentProfile=null;
+let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=null,imageAspectRatio='16:9';
+let generatedVideoUrl=null,generatedImageUrl=null;
 
-// ── APP STATE ──
-let currentUser = null;
-let currentProfile = null;
-let selectedStyle='', selectedRoom='', uploadedImageBase64=null, uploadedImageUrl=null, imageAspectRatio='16:9';
-let generatedVideoUrl=null, generatedImageUrl=null;
-
-// ================================================================
-// AUTH SYSTEM
-// ================================================================
 async function initAuth(){
-  const { data:{ session } } = await _sb.auth.getSession();
-  if(session?.user) await onLogin(session.user);
-
-  _sb.auth.onAuthStateChange(async (event, session) => {
-    if(event === 'SIGNED_IN' && session?.user){
-      await onLogin(session.user);
-      closeAuth();
-    } else if(event === 'SIGNED_OUT'){
-      onLogout();
-    }
+  const{data:{session}}=await _sb.auth.getSession();
+  if(session?.user)await onLogin(session.user);
+  _sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_IN'&&session?.user){await onLogin(session.user);closeAuth();}
+    else if(event==='SIGNED_OUT'){onLogout();}
   });
 }
-
 async function onLogin(user){
-  currentUser = user;
-  const { data } = await _sb.from('profiles').select('*').eq('id', user.id).single();
-  currentProfile = data;
-  updateHeaderUI();
+  currentUser=user;
+  const{data}=await _sb.from('profiles').select('*').eq('id',user.id).single();
+  currentProfile=data;updateHeaderUI();
 }
-
-function onLogout(){
-  currentUser = null;
-  currentProfile = null;
-  updateHeaderUI();
-}
-
+function onLogout(){currentUser=null;currentProfile=null;updateHeaderUI();}
 function updateHeaderUI(){
-  const btn = document.getElementById('authTriggerBtn');
-  const badge = document.getElementById('pointsDisplay');
-  const emailEl = document.getElementById('userEmailDisplay');
-
+  const btn=document.getElementById('authTriggerBtn');
+  const badge=document.getElementById('pointsDisplay');
+  const emailEl=document.getElementById('userEmailDisplay');
   if(currentUser){
-    const credits = currentProfile?.credits ?? 0;
-    const role = currentProfile?.role ?? '';
-    btn.textContent = currentUser.email?.split('@')[0] || '帳號';
+    const credits=currentProfile?.credits??0;
+    const role=currentProfile?.role??'';
+    btn.textContent=currentUser.email?.split('@')[0]||'帳號';
     btn.classList.add('logged-in');
-    badge.style.display = 'flex';
-    badge.textContent = role === 'admin' ? '點數：∞' : `剩餘點數：${credits} 點`;
-    badge.className = 'points-badge' + (credits < 5 && role !== 'admin' ? ' low' : '');
+    badge.style.display='flex';
+    badge.textContent=role==='admin'?'點數：∞':`剩餘點數：${credits} 點`;
+    badge.className='points-badge'+(credits<5&&role!=='admin'?' low':'');
     badge.insertAdjacentHTML('afterbegin','<span style="font-size:7px;color:var(--gold);margin-right:4px;">◆</span>');
-    if(emailEl) emailEl.textContent = currentUser.email;
-  } else {
-    btn.textContent = '登入 / 註冊';
-    btn.classList.remove('logged-in');
-    badge.style.display = 'none';
-    closeUserMenu();
+    if(emailEl)emailEl.textContent=currentUser.email;
+  }else{
+    btn.textContent='登入 / 註冊';btn.classList.remove('logged-in');
+    badge.style.display='none';closeUserMenu();
   }
 }
-
-function handleAuthBtn(){
-  if(currentUser){
-    document.getElementById('userMenu').classList.toggle('open');
-  } else {
-    openAuth();
-  }
-}
-
-function closeUserMenu(){
-  document.getElementById('userMenu').classList.remove('open');
-}
-
-async function handleSignOut(){
-  closeUserMenu();
-  await _sb.auth.signOut();
-  showToast('已登出');
-}
-
-// Close user menu on outside click
-document.addEventListener('click', e => {
-  const menu = document.getElementById('userMenu');
-  if(!menu.contains(e.target)) closeUserMenu();
-});
-
-// ── AUTH MODAL ──
-function openAuth(tab='login'){
-  document.getElementById('authOverlay').classList.add('open');
-  auTab(tab);
-}
-
-function closeAuth(){
-  document.getElementById('authOverlay').classList.remove('open');
-  clearAuMsg();
-}
-
-document.getElementById('authOverlay').addEventListener('click', e => {
-  if(e.target === document.getElementById('authOverlay')) closeAuth();
-});
-
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeAuth(); });
-
+function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').classList.toggle('open');}else{openAuth();}}
+function closeUserMenu(){document.getElementById('userMenu').classList.remove('open');}
+async function handleSignOut(){closeUserMenu();await _sb.auth.signOut();showToast('已登出');}
+document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
+function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
+function closeAuth(){document.getElementById('authOverlay').classList.remove('open');clearAuMsg();}
+document.getElementById('authOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('authOverlay'))closeAuth();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAuth();});
 function auTab(tab){
-  ['login','register','trial'].forEach(t => {
-    document.getElementById('auPanel-'+t).style.display = 'none';
-    document.getElementById('auTab-'+t).classList.remove('active');
-  });
-  document.getElementById('auPanel-'+tab).style.display = 'block';
-  document.getElementById('auTab-'+tab).classList.add('active');
-  const titles = {
-    login:    ['歡迎回來',     '登入以繼續使用您的帳號'],
-    register: ['建立帳號',     '開始您的專業房產展示之旅'],
-    trial:    ['免費試用申請', '專屬房仲業者的體驗方案']
-  };
-  document.getElementById('auTitle').textContent = titles[tab][0];
-  document.getElementById('auSub').textContent   = titles[tab][1];
-  clearAuMsg();
+  ['login','register','trial'].forEach(t=>{document.getElementById('auPanel-'+t).style.display='none';document.getElementById('auTab-'+t).classList.remove('active');});
+  document.getElementById('auPanel-'+tab).style.display='block';document.getElementById('auTab-'+tab).classList.add('active');
+  const titles={login:['歡迎回來','登入以繼續使用您的帳號'],register:['建立帳號','開始您的專業房產展示之旅'],trial:['免費試用申請','專屬房仲業者的體驗方案']};
+  document.getElementById('auTitle').textContent=titles[tab][0];document.getElementById('auSub').textContent=titles[tab][1];clearAuMsg();
 }
-
-function showAuMsg(msg, type='error'){
-  const el = document.getElementById('auMsg');
-  el.textContent = msg;
-  el.className = 'au-msg ' + type;
-}
-
-function clearAuMsg(){
-  const el = document.getElementById('auMsg');
-  el.className = 'au-msg';
-  el.textContent = '';
-}
-
-function setAuLoading(btnId, loading, defaultText=''){
-  const btn = document.getElementById(btnId);
-  btn.disabled = loading;
-  btn.querySelector('span').innerHTML = loading
-    ? '<span class="au-spin"></span>處理中...'
-    : defaultText;
-}
-
-// ── OAUTH ──
-async function oauthLogin(provider){
-  clearAuMsg();
-  const { error } = await _sb.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo: window.location.origin }
-  });
-  if(error) showAuMsg(error.message || '登入失敗，請稍後再試');
-}
-
-// ── EMAIL LOGIN ──
+function showAuMsg(msg,type='error'){const el=document.getElementById('auMsg');el.textContent=msg;el.className='au-msg '+type;}
+function clearAuMsg(){const el=document.getElementById('auMsg');el.className='au-msg';el.textContent='';}
+function setAuLoading(btnId,loading,defaultText=''){const btn=document.getElementById(btnId);btn.disabled=loading;btn.querySelector('span').innerHTML=loading?'<span class="au-spin"></span>處理中...':defaultText;}
+async function oauthLogin(provider){clearAuMsg();const{error}=await _sb.auth.signInWithOAuth({provider,options:{redirectTo:window.location.origin}});if(error)showAuMsg(error.message||'登入失敗，請稍後再試');}
 async function doLogin(){
   clearAuMsg();
-  const email    = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  if(!email || !password){ showAuMsg('請填寫電子郵件與密碼'); return; }
-  setAuLoading('loginBtn', true);
-  try {
-    const { error } = await _sb.auth.signInWithPassword({ email, password });
-    if(error) throw error;
-  } catch(e){
-    showAuMsg(e.message || '帳號或密碼錯誤');
-  } finally {
-    setAuLoading('loginBtn', false, '登入');
-  }
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  if(!email||!password){showAuMsg('請填寫電子郵件與密碼');return;}
+  setAuLoading('loginBtn',true);
+  try{const{error}=await _sb.auth.signInWithPassword({email,password});if(error)throw error;}
+  catch(e){showAuMsg(e.message||'帳號或密碼錯誤');}
+  finally{setAuLoading('loginBtn',false,'登入');}
 }
-
-// ── EMAIL REGISTER ──
 async function doRegister(){
   clearAuMsg();
-  const email   = document.getElementById('regEmail').value.trim();
-  const pass    = document.getElementById('regPassword').value;
-  const confirm = document.getElementById('regPasswordConfirm').value;
-  if(!email){ showAuMsg('請填寫電子郵件'); return; }
-  if(pass.length < 8){ showAuMsg('密碼至少需要 8 個字元'); return; }
-  if(pass !== confirm){ showAuMsg('兩次密碼輸入不一致'); return; }
-  setAuLoading('registerBtn', true);
-  try {
-    const { error } = await _sb.auth.signUp({ email, password: pass });
-    if(error) throw error;
-    showAuMsg('帳號建立成功！請確認您的電子郵件以啟用帳號。', 'success');
-  } catch(e){
-    showAuMsg(e.message || '註冊失敗，請稍後再試');
-  } finally {
-    setAuLoading('registerBtn', false, '建立帳號');
-  }
+  const email=document.getElementById('regEmail').value.trim();
+  const pass=document.getElementById('regPassword').value;
+  const confirm=document.getElementById('regPasswordConfirm').value;
+  if(!email){showAuMsg('請填寫電子郵件');return;}
+  if(pass.length<8){showAuMsg('密碼至少需要 8 個字元');return;}
+  if(pass!==confirm){showAuMsg('兩次密碼輸入不一致');return;}
+  setAuLoading('registerBtn',true);
+  try{const{error}=await _sb.auth.signUp({email,password:pass});if(error)throw error;showAuMsg('帳號建立成功！請確認您的電子郵件以啟用帳號。','success');}
+  catch(e){showAuMsg(e.message||'註冊失敗，請稍後再試');}
+  finally{setAuLoading('registerBtn',false,'建立帳號');}
 }
-
-// ── TRIAL APPLY ──
-function handleDocFile(input){
-  const file = input.files[0];
-  if(file) document.getElementById('uploadDzText').textContent = '✓ ' + file.name;
-}
-
+function handleDocFile(input){const file=input.files[0];if(file)document.getElementById('uploadDzText').textContent='✓ '+file.name;}
 async function doTrialApply(){
   clearAuMsg();
-  const email    = document.getElementById('trialEmail').value.trim();
-  const password = document.getElementById('trialPassword').value;
-  const file     = document.getElementById('docFile').files[0];
-  if(!email){ showAuMsg('請填寫電子郵件'); return; }
-  if(password.length < 8){ showAuMsg('密碼至少需要 8 個字元'); return; }
-  if(!file){ showAuMsg('請上傳證明文件'); return; }
-  if(file.size > 5*1024*1024){ showAuMsg('檔案大小不可超過 5MB'); return; }
-  setAuLoading('trialBtn', true);
-  try {
-    // 1. 建立帳號
-    const { data, error } = await _sb.auth.signUp({ email, password });
-    if(error) throw error;
-    const userId = data.user?.id;
-    if(!userId) throw new Error('帳號建立失敗');
-    // 2. 上傳文件
-    const ext = file.name.split('.').pop();
-    const path = `${userId}/broker-cert-${Date.now()}.${ext}`;
-    const { error: uploadErr } = await _sb.storage.from('broker-docs').upload(path, file, { upsert:true });
-    if(uploadErr) throw uploadErr;
-    // 3. 更新 profile
-    await _sb.from('profiles').update({ broker_doc_url: path, role: 'trial_pending' }).eq('id', userId);
-    showAuMsg('申請已提交！我們將在 1–2 個工作天內審核並通知您。', 'success');
-  } catch(e){
-    showAuMsg(e.message || '提交失敗，請稍後再試');
-  } finally {
-    setAuLoading('trialBtn', false, '提交申請');
-  }
+  const email=document.getElementById('trialEmail').value.trim();
+  const password=document.getElementById('trialPassword').value;
+  const file=document.getElementById('docFile').files[0];
+  if(!email){showAuMsg('請填寫電子郵件');return;}
+  if(password.length<8){showAuMsg('密碼至少需要 8 個字元');return;}
+  if(!file){showAuMsg('請上傳證明文件');return;}
+  if(file.size>5*1024*1024){showAuMsg('檔案大小不可超過 5MB');return;}
+  setAuLoading('trialBtn',true);
+  try{
+    const{data,error}=await _sb.auth.signUp({email,password});if(error)throw error;
+    const userId=data.user?.id;if(!userId)throw new Error('帳號建立失敗');
+    const ext=file.name.split('.').pop();
+    const path=`${userId}/broker-cert-${Date.now()}.${ext}`;
+    const{error:uploadErr}=await _sb.storage.from('broker-docs').upload(path,file,{upsert:true});if(uploadErr)throw uploadErr;
+    await _sb.from('profiles').update({broker_doc_url:path,role:'trial_pending'}).eq('id',userId);
+    showAuMsg('申請已提交！我們將在 1–2 個工作天內審核並通知您。','success');
+  }catch(e){showAuMsg(e.message||'提交失敗，請稍後再試');}
+  finally{setAuLoading('trialBtn',false,'提交申請');}
 }
-
-// ── RESET PASSWORD ──
 async function doResetPassword(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const target = email || prompt('請輸入您的電子郵件：');
-  if(!target) return;
-  const { error } = await _sb.auth.resetPasswordForEmail(target, { redirectTo: window.location.origin });
-  if(error) showAuMsg(error.message);
-  else showAuMsg('重設連結已發送，請檢查信箱。', 'success');
+  const email=document.getElementById('loginEmail').value.trim();
+  const target=email||prompt('請輸入您的電子郵件：');if(!target)return;
+  const{error}=await _sb.auth.resetPasswordForEmail(target,{redirectTo:window.location.origin});
+  if(error)showAuMsg(error.message);else showAuMsg('重設連結已發送，請檢查信箱。','success');
 }
-
-// ── DEDUCT CREDITS ──
 async function deductCredits(cost){
-  if(currentProfile?.role === 'admin') return true;
-  const { data, error } = await _sb.rpc('deduct_credits', {
-    p_user_id: currentUser.id,
-    p_cost: cost
-  });
-  if(error || !data?.success) return false;
-  // 更新本地點數
-  if(currentProfile) currentProfile.credits = data.remaining;
-  updateHeaderUI();
-  return true;
+  if(currentProfile?.role==='admin')return true;
+  const{data,error}=await _sb.rpc('deduct_credits',{p_user_id:currentUser.id,p_cost:cost});
+  if(error||!data?.success)return false;
+  if(currentProfile)currentProfile.credits=data.remaining;
+  updateHeaderUI();return true;
 }
 
-// ================================================================
-// PROMPT DATABASE (原版保留)
-// ================================================================
-const ROOM_PROMPTS = {
-  bedroom:"Room type: Bedroom. Primarily used for sleeping. A bed must be the main focal point. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace all existing furniture and non-structural cabinetry with a new, realistic layout. Integrate secondary pieces like nightstands, a wardrobe, or a vanity that best fit the room's proportions and circulation.",
-  living_room:"Room type: Living Room. Used for relaxing and socializing. A sofa seating area must be clearly defined. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace all existing furniture and non-structural decor. Integrate supporting furniture such as a coffee table, media unit, or accent chairs based on room size.",
-  dining_room:"Room type: Dining Room. Used for dining and gathering. A dining table and chairs are the main focal points. Strictly preserve all original wall positions, openings, and architectural structure. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace existing furniture and loose decor with a new layout. Include secondary elements like a sideboard or console if space allows.",
-  kitchen:"Room type: Kitchen. Used for food preparation. Do not redesign the kitchen layout or cabinetry; preserve the existing structural placement. Do not add any new counters, islands, bar structures, or bar stools that do not exist in the original image. Add light styling only, such as small appliances or minimal counter decor.",
-  study:"Room type: Study. Used for working or reading. A desk and chair must be present and functional. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace existing furniture with new pieces. Integrate organized storage like bookshelves if space permits.",
-  multi_purpose:"Room type: Multi-purpose Room. A flexible space for guests or hobbies. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace existing furniture with minimal, functional pieces such as a compact daybed, a light desk, or modular storage."
-};
+// ── PROMPT DATABASE ──
+const ROOM_PROMPTS={bedroom:"Room type: Bedroom. Primarily used for sleeping. A bed must be the main focal point. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace all existing furniture and non-structural cabinetry with a new, realistic layout. Integrate secondary pieces like nightstands, a wardrobe, or a vanity that best fit the room's proportions and circulation.",living_room:"Room type: Living Room. Used for relaxing and socializing. A sofa seating area must be clearly defined. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace all existing furniture and non-structural decor. Integrate supporting furniture such as a coffee table, media unit, or accent chairs based on room size.",dining_room:"Room type: Dining Room. Used for dining and gathering. A dining table and chairs are the main focal points. Strictly preserve all original wall positions, openings, and architectural structure. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace existing furniture and loose decor with a new layout. Include secondary elements like a sideboard or console if space allows.",kitchen:"Room type: Kitchen. Used for food preparation. Do not redesign the kitchen layout or cabinetry; preserve the existing structural placement. Do not add any new counters, islands, bar structures, or bar stools that do not exist in the original image. Add light styling only, such as small appliances or minimal counter decor.",study:"Room type: Study. Used for working or reading. A desk and chair must be present and functional. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace existing furniture with new pieces. Integrate organized storage like bookshelves if space permits.",multi_purpose:"Room type: Multi-purpose Room. A flexible space for guests or hobbies. Strictly preserve all original wall positions, window openings, and door locations. Do NOT add any new windows, doors, or openings that do not exist in the original image. Replace existing furniture with minimal, functional pieces such as a compact daybed, a light desk, or modular storage."};
+const STYLE_PROMPTS={japanese_muji_wabi_sabi:{label:"日式無印/侘寂",prompt:"Style: Muji-inspired wabi-sabi interior with a quiet morning atmosphere that feels bright yet calm. Emphasize lived-in stillness through subtle textured walls. Natural wood furniture and organic linen or cotton fabrics ground the space, while a few imperfect handmade ceramics add a gentle sense of time. Prioritize spatial emptiness; any additional furniture must have realistic depths and functional proportions."},natural_biophilic:{label:"自然系/綠意",prompt:"Style: High-end Natural Biophilic interior with a sunlit, restorative atmosphere. Palette: Muted earth tones (terracotta, moss green, deep oat) over a soft white base. Greenery and artisan accents are integrated as standalone, minimalist focal points. All furniture must be non-embedded with realistic depths. Lighting is bright and airy."},scandinavian_warm:{label:"溫暖北歐風",prompt:"Style: High-end Warm Scandinavian urban apartment with a palette of clear whites, warm sand beige, and soft oat neutrals. Lighting is bright and airy, complemented by sheer white curtains or soft linen. Decor features a single high-quality artisanal accent placed asymmetrically."},modern_quiet_luxury:{label:"現代質感輕奢",prompt:"Style: High-end Modern Quiet Luxury interior with a sunlit, aspirational show-home glow. Palette: Refined neutral spectrum of cool greys, warm taupe, and charcoal with subtle metallic undertones. Strictly maintain original flat wall structures. Furniture must be standalone with realistic depths. Sophisticated lighting highlights material contrast."},retro_modern_tw:{label:"台味復古",prompt:"Style: Retro modern with subtle Taiwanese character. Hints of vintage atmosphere through furniture, colors, or textures. Avoid structural changes. Balance nostalgic elements with modern cleanliness. The space should feel story-rich but still livable. All vintage-inspired furniture must be standalone with realistic depths."},korean_instagrammable_adult:{label:"韓系網美風",prompt:"Style: High-end Instagrammable modern adult apartment with a creamy Morandi palette of warm milk and oatmeal. Refined, smooth textures and editorial aesthetic. Lighting may include LED coves. Soft sheer draping curtains diffuse natural light. Furniture features sculptural, curved silhouettes."}};
+const NEGATIVE_PROMPT_VIDEO=["camera movement","zoom","pan","tilt","layout change","structural change","new windows","perspective shift","object floating","object sliding horizontally","ghosting","double exposure","distortion","flickering edges","wall wobbling","room shrinking","camera shake","floor plan change","scaling animation","growing objects","shrinking objects","sliding walls","motion blur","flicker","jitter","frame inconsistency","people","animals","text","watermark","logo","fantasy","surreal","cartoon","stylized"].join(", ");
+const ROOM_NAMES={bedroom:"臥室",living_room:"客廳",dining_room:"餐廳",kitchen:"廚房",study:"書房",multi_purpose:"多功能房"};
 
-const STYLE_PROMPTS = {
-  japanese_muji_wabi_sabi:{label:"日式無印/侘寂",prompt:"Style: Muji-inspired wabi-sabi interior with a quiet morning atmosphere that feels bright yet calm. Emphasize lived-in stillness through subtle textured walls. Natural wood furniture and organic linen or cotton fabrics ground the space, while a few imperfect handmade ceramics add a gentle sense of time. Prioritize spatial emptiness; any additional furniture must have realistic depths and functional proportions."},
-  natural_biophilic:{label:"自然系/綠意",prompt:"Style: High-end Natural Biophilic interior with a sunlit, restorative atmosphere. Palette: Muted earth tones (terracotta, moss green, deep oat) over a soft white base. Greenery and artisan accents are integrated as standalone, minimalist focal points. All furniture must be non-embedded with realistic depths. Lighting is bright and airy."},
-  scandinavian_warm:{label:"溫暖北歐風",prompt:"Style: High-end Warm Scandinavian urban apartment with a palette of clear whites, warm sand beige, and soft oat neutrals. Lighting is bright and airy, complemented by sheer white curtains or soft linen. Decor features a single high-quality artisanal accent placed asymmetrically."},
-  modern_quiet_luxury:{label:"現代質感輕奢",prompt:"Style: High-end Modern Quiet Luxury interior with a sunlit, aspirational show-home glow. Palette: Refined neutral spectrum of cool greys, warm taupe, and charcoal with subtle metallic undertones. Strictly maintain original flat wall structures. Furniture must be standalone with realistic depths. Sophisticated lighting highlights material contrast."},
-  retro_modern_tw:{label:"台味復古",prompt:"Style: Retro modern with subtle Taiwanese character. Hints of vintage atmosphere through furniture, colors, or textures. Avoid structural changes. Balance nostalgic elements with modern cleanliness. The space should feel story-rich but still livable. All vintage-inspired furniture must be standalone with realistic depths."},
-  korean_instagrammable_adult:{label:"韓系網美風",prompt:"Style: High-end Instagrammable modern adult apartment with a creamy Morandi palette of warm milk and oatmeal. Refined, smooth textures and editorial aesthetic. Lighting may include LED coves. Soft sheer draping curtains diffuse natural light. Furniture features sculptural, curved silhouettes."}
-};
-
-const NEGATIVE_PROMPT_VIDEO = ["camera movement","zoom","pan","tilt","layout change","structural change","new windows","perspective shift","object floating","object sliding horizontally","ghosting","double exposure","distortion","flickering edges","wall wobbling","room shrinking","camera shake","floor plan change","scaling animation","growing objects","shrinking objects","sliding walls","motion blur","flicker","jitter","frame inconsistency","people","animals","text","watermark","logo","fantasy","surreal","cartoon","stylized"].join(", ");
-const ROOM_NAMES = {bedroom:"臥室",living_room:"客廳",dining_room:"餐廳",kitchen:"廚房",study:"書房",multi_purpose:"多功能房"};
-
-// ================================================================
-// UPLOAD
-// ================================================================
+// ── UPLOAD ──
 const uz=document.getElementById('uploadZone');
 const fi=document.getElementById('fileInput');
 uz.addEventListener('click',e=>{if(!e.target.classList.contains('change-btn'))fi.click();});
@@ -676,77 +524,92 @@ function processImage(file){
   r.onload=e=>{
     uploadedImageBase64=e.target.result;
     const img=new Image();
-    img.onload=()=>{
-      const w=img.naturalWidth,h=img.naturalHeight,ratio=w/h;
-      if(ratio>1.2){imageAspectRatio='16:9';}
-      else if(ratio<0.8){imageAspectRatio='9:16';}
-      else{imageAspectRatio='1:1';}
-    };
+    img.onload=()=>{const w=img.naturalWidth,h=img.naturalHeight,ratio=w/h;if(ratio>1.2){imageAspectRatio='16:9';}else if(ratio<0.8){imageAspectRatio='9:16';}else{imageAspectRatio='1:1';}};
     img.src=uploadedImageBase64;
     uz.classList.add('has-image');
     uz.innerHTML=`<img src="${uploadedImageBase64}" alt="上傳照片"><button class="change-btn" onclick="resetUpload(event)">重新上傳</button><div class="wm">已上傳｜等待生成</div>`;
-    runPreCheck(); checkReady();
+    runPreCheck();
     document.getElementById('step1').className='step done';
     document.getElementById('step2').className='step active';
   };
   r.readAsDataURL(file);
 }
 
+// ── VISION PRECHECK ──
 function runPreCheck(){
   const pc=document.getElementById('precheck');
   const pb=document.getElementById('precheckBody');
+  const btn=document.getElementById('genBtn');
   pc.style.display='block';
-  pb.innerHTML='<span style="color:var(--gold)">分析中…</span>';
-  setTimeout(()=>{pb.innerHTML='✅ 照片已上傳完成<br><span style="color:var(--gold-light)">請選擇風格與空間類型後開始生成。</span>';},1400);
+  pc.className='precheck';
+  pb.innerHTML='<div class="vision-loading"><span class="vision-spin"></span>Claude Vision 分析中，請稍候…</div>';
+  btn.disabled=true;
+  (async()=>{
+    try{
+      const base64Image=uploadedImageBase64.split(',')[1];
+      const mimeType=uploadedImageBase64.split(';')[0].replace('data:','');
+      const response=await fetch('/api/vision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:base64Image,mimeType})});
+      if(!response.ok)throw new Error('Vision API 錯誤');
+      const result=await response.json();
+      renderVisionResult(pc,pb,result);
+    }catch(err){
+      pc.className='precheck';
+      pb.innerHTML='<span style="color:var(--text-muted);font-size:11px;">⚠ 品質分析暫時無法使用，您仍可繼續生成。</span>';
+      console.warn('Vision precheck failed:',err);
+    }finally{
+      checkReady();
+    }
+  })();
+}
+
+function renderVisionResult(pc,pb,result){
+  const overall=result.overall||'warn';
+  const classMap={pass:'vision-pass',warn:'vision-warn',fail:'vision-fail'};
+  const iconMap={pass:'✅',warn:'⚠️',fail:'🚫'};
+  const labelMap={pass:'適合生成',warn:'可以生成（請注意）',fail:'建議重新拍攝'};
+  const scoreMap={pass:'score-pass',warn:'score-warn',fail:'score-fail'};
+  const clutterText={low:'整潔',medium:'適中',high:'偏多'};
+  const fixedText={none:'無干擾',moderate:'中度干擾',severe:'嚴重干擾'};
+  const qualityText={good:'清晰',acceptable:'尚可',poor:'模糊'};
+  pc.className='precheck '+(classMap[overall]||'vision-warn');
+  const suggestions=(result.suggestions||[]).map(s=>`<div class="vision-item"><span class="vi-icon">💡</span><span>${s}</span></div>`).join('');
+  pb.innerHTML=`
+    <div class="precheck-title">${iconMap[overall]} ${labelMap[overall]}<span class="vision-score ${scoreMap[overall]}">${result.summary||''}</span></div>
+    <div class="vision-items">
+      <div class="vision-item"><span class="vi-icon">📦</span><span>雜物程度：<strong style="color:var(--text)">${clutterText[result.clutter_level]||'—'}</strong></span></div>
+      <div class="vision-item"><span class="vi-icon">🏠</span><span>固定裝潢干擾：<strong style="color:var(--text)">${fixedText[result.fixed_decor_interference]||'—'}</strong></span></div>
+      <div class="vision-item"><span class="vi-icon">📷</span><span>照片品質：<strong style="color:var(--text)">${qualityText[result.image_quality]||'—'}</strong></span></div>
+      ${suggestions}
+    </div>
+    ${overall==='fail'?'<div style="margin-top:10px;font-size:11px;color:#c46b6b;">建議重新拍攝，您仍可點生成按鈕繼續。</div>':overall==='warn'?'<div style="margin-top:10px;font-size:11px;color:#c4a46b;">效果可能受部分影響，清理後重拍效果更佳。</div>':''}
+  `;
 }
 
 function resetUpload(e){
   e.stopPropagation();
-  uploadedImageBase64=null; uploadedImageUrl=null;
+  uploadedImageBase64=null;uploadedImageUrl=null;
   uz.classList.remove('has-image');
   uz.innerHTML=`<input type="file" id="fileInput" accept="image/*"><div class="upload-icon">🏠</div><div class="upload-text"><strong>點擊或拖曳上傳照片</strong>支援橫式或直式空屋照，保留原始比例</div><div class="upload-hint">JPG / PNG｜建議 2MB 以上清晰圖片</div><button class="change-btn" onclick="resetUpload(event)">重新上傳</button>`;
   document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])processImage(e.target.files[0]);});
   document.getElementById('precheck').style.display='none';
   checkReady();
 }
+function selectStyle(el,key){document.querySelectorAll('.style-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedStyle=key;checkReady();document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';}
+function selectRoom(el,key){document.querySelectorAll('.room-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedRoom=key;checkReady();}
+function checkReady(){document.getElementById('genBtn').disabled=!(uploadedImageBase64&&selectedStyle&&selectedRoom);}
 
-function selectStyle(el,key){
-  document.querySelectorAll('.style-item').forEach(i=>i.classList.remove('selected'));
-  el.classList.add('selected'); selectedStyle=key;
-  checkReady();
-  document.getElementById('step2').className='step done';
-  document.getElementById('step3').className='step active';
-}
-
-function selectRoom(el,key){
-  document.querySelectorAll('.room-item').forEach(i=>i.classList.remove('selected'));
-  el.classList.add('selected'); selectedRoom=key;
-  checkReady();
-}
-
-function checkReady(){
-  document.getElementById('genBtn').disabled=!(uploadedImageBase64&&selectedStyle&&selectedRoom);
-}
-
-// ================================================================
-// GENERATION
-// ================================================================
+// ── GENERATION ──
 async function uploadImageToFal(base64DataUrl){
   setProgress('影片生成中…',5);
-  const res=await fetch(base64DataUrl);
-  const blob=await res.blob();
-  const file=new File([blob],'room.jpg',{type:blob.type});
-  let retries=0;
-  while(!window.falClient&&retries<20){await new Promise(r=>setTimeout(r,200));retries++;}
+  const res=await fetch(base64DataUrl);const blob=await res.blob();const file=new File([blob],'room.jpg',{type:blob.type});
+  let retries=0;while(!window.falClient&&retries<20){await new Promise(r=>setTimeout(r,200));retries++;}
   if(!window.falClient)throw new Error('fal SDK 載入失敗，請重新整理頁面');
   window.falClient.config({credentials:FAL_API_KEY});
   return await window.falClient.storage.upload(file);
 }
-
 async function generateStagedImage(imageUrl,styleKey,roomKey){
   setProgress('影片生成中…',20);
-  const stylePrompt=STYLE_PROMPTS[styleKey].prompt;
-  const roomPrompt=ROOM_PROMPTS[roomKey];
+  const stylePrompt=STYLE_PROMPTS[styleKey].prompt;const roomPrompt=ROOM_PROMPTS[roomKey];
   const A_Structure=`This image is a virtual staging result for a real estate listing. It represents a realistic, achievable furnished version of the original room. Preserve all original walls, doors, windows, room openings, ceiling, and floor exactly. Remove or ignore any loose furniture, movable decor, and personal belongings. Built-in cabinetry, wardrobes, wall paneling, and fixed woodwork may be updated or replaced to match the selected interior style, but must maintain the same spatial position and footprint. Do not expand the room, do not add new windows or doors, do not change the room layout. Stage the space with new furniture and decor that matches the selected style.`;
   const E_Presentation=`Interior staging visualization. High realism, professional real estate presentation. Designed to look like a model home. Visually appealing, aspirational, and marketable. Ceiling remains clean and simple, appropriate to the selected style.`;
   const F_Negative=`Do not include: camera angle change, perspective shift, window shape change, wall modification, distorted geometry, warped perspective, bent lines, adding windows, adding doors, adding openings, architectural redesign, new rooms, new partitions, people, animals, text, watermark, logo, fantasy, surreal, cartoon, stylized.`;
@@ -758,23 +621,20 @@ async function generateStagedImage(imageUrl,styleKey,roomKey){
   if(result.request_id)return await pollResult(result.request_id,'fal-ai/flux-2-lora-gallery/apartment-staging',20,50);
   return result.images?.[0]?.url;
 }
-
-async function generateVideo(startImageUrl,endImageUrl,styleKey,roomKey){
+async function generateVideo(startImageUrl,endImageUrl,styleKey){
   setProgress('影片生成中…',55);
   const styleLabel=STYLE_PROMPTS[styleKey].label;
-  let retries=0;
-  while(!window.falClient&&retries<20){await new Promise(r=>setTimeout(r,200));retries++;}
+  let retries=0;while(!window.falClient&&retries<20){await new Promise(r=>setTimeout(r,200));retries++;}
   if(!window.falClient)throw new Error('fal SDK 載入失敗，請重新整理頁面');
   window.falClient.config({credentials:FAL_API_KEY});
   const result=await window.falClient.subscribe('fal-ai/kling-video/o1/standard/image-to-video',{input:{prompt:`Interior staging transformation. Static camera, no camera movement, no sliding panels, no wipe transition. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. Walls, floor, and ceiling shift naturally to match the new style. New furniture and soft furnishings enter by sliding in smoothly from outside the frame, in 2 to 3 fast coordinated waves. Multiple objects move simultaneously. Motion is smooth, continuous, and controlled. Objects keep constant size while moving, no scaling, no popping, no sudden appearance. The final 1 second holds a stable, fully staged result. High realism, professional real estate visualization.`,start_image_url:startImageUrl,end_image_url:endImageUrl,duration:"5",negative_prompt:NEGATIVE_PROMPT_VIDEO},logs:true,onQueueUpdate:(update)=>{if(update.status==='IN_PROGRESS'){const pct=Math.min(55+Math.round((update.logs?.length||0)*2),93);setProgress('影片生成中…',pct);}}});
   return result.data?.video?.url;
 }
-
 async function pollResult(requestId,modelPath,startPct,endPct){
   const statusUrl=`https://fal.run/${modelPath}/requests/${requestId}/status`;
   let attempts=0;
   while(attempts<120){
-    await sleep(2000); attempts++;
+    await sleep(2000);attempts++;
     const pct=Math.min(startPct+((endPct-startPct)*attempts/120),endPct-2);
     setProgress(document.getElementById('progressText').textContent,Math.round(pct));
     const statusRes=await fetch(statusUrl,{headers:{'Authorization':`Key ${FAL_API_KEY}`}});
@@ -789,110 +649,53 @@ async function pollResult(requestId,modelPath,startPct,endPct){
   }
   throw new Error('等待超時，請稍後再試');
 }
-
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-
 function setProgress(text,pct){
-  const runner=document.getElementById('runnerWrap');
-  if(runner)runner.style.left=Math.min(pct,97)+'%';
-  document.getElementById('progressText').textContent=text;
-  document.getElementById('progressPct').textContent=pct+'%';
-  document.getElementById('progressFill').style.width=pct+'%';
-  document.getElementById('progressStep').textContent=text;
+  const runner=document.getElementById('runnerWrap');if(runner)runner.style.left=Math.min(pct,97)+'%';
+  document.getElementById('progressText').textContent=text;document.getElementById('progressPct').textContent=pct+'%';
+  document.getElementById('progressFill').style.width=pct+'%';document.getElementById('progressStep').textContent=text;
 }
-
-// ── MAIN FLOW ──
 async function startGeneration(){
-  // 未登入 → 開啟登入視窗
-  if(!currentUser){
-    showToast('請先登入以使用生成功能');
-    openAuth('login');
-    return;
-  }
-
-  const userCredits = currentProfile?.credits ?? 0;
-  const userRole    = currentProfile?.role ?? '';
-
-  // 點數不足（非 admin）
-  if(userRole !== 'admin' && userCredits < 20){
-    showToast('點數不足！請購買方案補充點數');
-    return;
-  }
-
-  // trial_pending 未審核
-  if(userRole === 'trial_pending'){
-    showToast('您的試用申請審核中，請稍候通知');
-    return;
-  }
-
+  if(!currentUser){showToast('請先登入以使用生成功能');openAuth('login');return;}
+  const userCredits=currentProfile?.credits??0;const userRole=currentProfile?.role??'';
+  if(userRole!=='admin'&&userCredits<20){showToast('點數不足！請購買方案補充點數');return;}
+  if(userRole==='trial_pending'){showToast('您的試用申請審核中，請稍候通知');return;}
   document.getElementById('genBtn').disabled=true;
   document.getElementById('progressWrap').classList.add('visible');
   document.getElementById('resultSection').style.display='none';
   document.getElementById('errorBox').classList.remove('visible');
-
   try{
-    uploadedImageUrl=await uploadImageToFal(uploadedImageBase64);
-    setProgress('影片生成中…',12);
-
+    uploadedImageUrl=await uploadImageToFal(uploadedImageBase64);setProgress('影片生成中…',12);
     generatedImageUrl=await generateStagedImage(uploadedImageUrl,selectedStyle,selectedRoom);
-    if(!generatedImageUrl)throw new Error('圖生圖未回傳結果，請重試');
-    setProgress('影片生成中…',52);
-
+    if(!generatedImageUrl)throw new Error('圖生圖未回傳結果，請重試');setProgress('影片生成中…',52);
     document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">Step 1 完成｜AI 生成，僅供參考｜AI Staging Pro</div>`;
-
-    generatedVideoUrl=await generateVideo(uploadedImageUrl,generatedImageUrl,selectedStyle,selectedRoom);
-    if(!generatedVideoUrl)throw new Error('圖生影未回傳結果，請重試');
-    setProgress('影片生成中…',100);
-
-    // ── 扣點（真實 Supabase）──
-    const deducted = await deductCredits(20);
-    if(!deducted){
-      showToast('點數扣除失敗，請重新整理後再試');
-    }
-
+    generatedVideoUrl=await generateVideo(uploadedImageUrl,generatedImageUrl,selectedStyle);
+    if(!generatedVideoUrl)throw new Error('圖生影未回傳結果，請重試');setProgress('影片生成中…',100);
+    const deducted=await deductCredits(20);if(!deducted){showToast('點數扣除失敗，請重新整理後再試');}
     setTimeout(()=>{
       document.getElementById('progressWrap').classList.remove('visible');
       document.getElementById('resultSection').style.display='block';
-      const sName=STYLE_PROMPTS[selectedStyle].label;
-      const rName=ROOM_NAMES[selectedRoom];
+      const sName=STYLE_PROMPTS[selectedStyle].label;const rName=ROOM_NAMES[selectedRoom];
       document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
       document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
-      document.getElementById('genBtn').disabled=false;
-      showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
+      document.getElementById('genBtn').disabled=false;showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
     },600);
-
   }catch(err){
     document.getElementById('progressWrap').classList.remove('visible');
     document.getElementById('errorBox').classList.add('visible');
     document.getElementById('errorBody').textContent=`錯誤：${err.message}\n\n點數未扣除，請確認 API Key 是否正確，或稍後再試。`;
-    document.getElementById('genBtn').disabled=false;
-    console.error('Generation error:',err);
+    document.getElementById('genBtn').disabled=false;console.error('Generation error:',err);
   }
 }
-
-// ── DOWNLOAD ──
 async function downloadFile(url,filename){
-  try{
-    showToast('下載準備中…');
-    const res=await fetch(url);
-    const blob=await res.blob();
-    const blobUrl=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=blobUrl; a.download=filename; a.click();
-    setTimeout(()=>URL.revokeObjectURL(blobUrl),5000);
-  }catch(e){
-    const a=document.createElement('a');
-    a.href=url; a.download=filename; a.target='_blank'; a.click();
-  }
+  try{showToast('下載準備中…');const res=await fetch(url);const blob=await res.blob();const blobUrl=URL.createObjectURL(blob);const a=document.createElement('a');a.href=blobUrl;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(blobUrl),5000);}
+  catch(e){const a=document.createElement('a');a.href=url;a.download=filename;a.target='_blank';a.click();}
 }
 function downloadImage(){if(!generatedImageUrl){showToast('效果圖尚未生成');return;}downloadFile(generatedImageUrl,'ai-staging-effect.png');}
 function downloadVideo(){if(!generatedVideoUrl){showToast('尚無影片可下載');return;}downloadFile(generatedVideoUrl,`ai-staging-${selectedStyle}-${selectedRoom}-${Date.now()}.mp4`);}
 function resetAll(){document.getElementById('resultSection').style.display='none';document.getElementById('progressWrap').classList.remove('visible');document.getElementById('errorBox').classList.remove('visible');document.getElementById('genBtn').disabled=false;generatedVideoUrl=null;generatedImageUrl=null;}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
-
-// ── INIT ──
 initAuth();
-
 </script>
 </body>
 </html>
