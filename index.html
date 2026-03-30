@@ -995,8 +995,19 @@ function processImage(file){
 }
 
 function runPreCheck(){
-  // 未登入不跑 Vision，節省 API 費用
   if(!currentUser){
+    const pc=document.getElementById('precheck');
+    const pb=document.getElementById('precheckBody');
+    pc.style.display='block';
+    pc.className='precheck';
+    pb.innerHTML=`
+      <div style="font-size:12px;color:var(--ink-muted);line-height:1.8;">
+        🔒 請先
+        <a onclick="openAuth('login')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">登入</a>
+        或
+        <a onclick="openAuth('trial')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">申請試用</a>
+        才能使用 AI 圖片分析與生成功能。
+      </div>`;
     checkReady();
     return;
   }
@@ -1021,7 +1032,6 @@ function runPreCheck(){
     }finally{checkReady();}
   })();
 }
-
 function renderVisionResult(pc,pb,result){
   const overall=result.overall||'warn';
   const classMap={pass:'vision-pass',warn:'vision-warn',fail:'vision-fail'};
