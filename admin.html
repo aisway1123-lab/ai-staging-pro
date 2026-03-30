@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Staging Pro｜Admin Dashboard</title>
+<title>AI Staging Pro｜後台管理</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700&family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -17,6 +17,7 @@
   --text:#E8E4DC;--text-muted:#7A7670;--text-subtle:#3a3630;
   --border:rgba(201,168,76,0.18);--border-hover:rgba(201,168,76,0.4);
   --danger:#c46b6b;--success:#6bc48a;--warning:#c4a46b;
+  --manager:#7b9cc4;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--dark);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;}
@@ -43,11 +44,14 @@ body{background:var(--dark);color:var(--text);font-family:'DM Mono',monospace;mi
 .sidebar-logo{padding:1.8rem 1.5rem 1.4rem;border-bottom:1px solid var(--border);}
 .sidebar-logo-text{font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold);letter-spacing:2px;}
 .sidebar-logo-sub{font-size:0.58rem;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin-top:0.2rem;}
-.sidebar-admin-badge{display:inline-block;font-size:0.58rem;letter-spacing:0.15em;color:var(--dark);background:var(--gold);padding:2px 7px;margin-top:0.5rem;}
+.role-badge{display:inline-block;font-size:0.58rem;letter-spacing:0.15em;color:var(--dark);padding:2px 7px;margin-top:0.5rem;}
+.role-badge.admin{background:var(--gold);}
+.role-badge.manager{background:var(--manager);}
 .nav{flex:1;padding:1rem 0;}
 .nav-item{display:flex;align-items:center;gap:0.7rem;padding:0.75rem 1.5rem;font-size:0.72rem;letter-spacing:0.08em;color:var(--text-muted);cursor:pointer;transition:all 0.2s;border-left:2px solid transparent;}
 .nav-item:hover{color:var(--text);background:var(--gold-dim);}
 .nav-item.active{color:var(--gold);border-left-color:var(--gold);background:var(--gold-dim);}
+.nav-item.hidden{display:none;}
 .nav-item .nav-icon{font-size:0.9rem;width:1.2rem;text-align:center;}
 .sidebar-footer{padding:1.2rem 1.5rem;border-top:1px solid var(--border);}
 .sidebar-user{font-size:0.68rem;color:var(--text-muted);margin-bottom:0.6rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -87,14 +91,15 @@ td{padding:0.85rem 1rem;font-size:0.75rem;color:var(--text-muted);vertical-align
 td.primary{color:var(--text);}
 
 /* ── Role Badge ── */
-.role-badge{display:inline-block;padding:2px 8px;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;}
+.role-tag{display:inline-block;padding:2px 8px;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;}
 .role-admin{background:rgba(201,168,76,0.15);color:var(--gold);border:1px solid rgba(201,168,76,0.3);}
+.role-manager{background:rgba(123,156,196,0.15);color:var(--manager);border:1px solid rgba(123,156,196,0.3);}
 .role-trial{background:rgba(107,196,138,0.1);color:var(--success);border:1px solid rgba(107,196,138,0.25);}
 .role-trial_pending{background:rgba(196,164,107,0.1);color:var(--warning);border:1px solid rgba(196,164,107,0.25);}
 .role-subscriber{background:rgba(107,150,196,0.1);color:#6b96c4;border:1px solid rgba(107,150,196,0.25);}
 .role-free{background:var(--dark-4);color:var(--text-subtle);border:1px solid var(--border);}
 
-/* ── Action Buttons ── */
+/* ── Buttons ── */
 .btn{padding:0.35rem 0.8rem;font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;border:1px solid;}
 .btn-approve{background:rgba(107,196,138,0.08);border-color:rgba(107,196,138,0.3);color:var(--success);}
 .btn-approve:hover{background:rgba(107,196,138,0.18);}
@@ -105,10 +110,14 @@ td.primary{color:var(--text);}
 .btn-sm{padding:0.28rem 0.6rem;font-size:0.6rem;}
 .btn-row{display:flex;gap:0.4rem;flex-wrap:wrap;}
 
-/* ── Credits Input inline ── */
-.credits-inline{display:flex;gap:0.4rem;align-items:center;}
+/* ── Credits Input ── */
 .credits-input{width:70px;background:var(--dark-3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.72rem;padding:0.3rem 0.5rem;outline:none;text-align:center;}
 .credits-input:focus{border-color:var(--gold);}
+
+/* ── Manager 無權限提示 ── */
+.no-permission{padding:2rem;text-align:center;color:var(--text-muted);}
+.no-permission-icon{font-size:2rem;margin-bottom:0.8rem;opacity:0.5;}
+.no-permission-text{font-size:0.78rem;line-height:1.8;}
 
 /* ── Empty / Loading ── */
 .empty-state{padding:3rem;text-align:center;color:var(--text-subtle);font-size:0.75rem;}
@@ -133,25 +142,21 @@ td.primary{color:var(--text);}
 .modal-input:focus{border-color:var(--gold);}
 .modal-footer{padding:1rem 1.6rem;border-top:1px solid var(--border);display:flex;gap:0.6rem;justify-content:flex-end;}
 .modal-close{position:absolute;top:0.9rem;right:1rem;background:none;border:none;color:var(--text-muted);font-size:0.9rem;cursor:pointer;}
-
-/* ── Doc Preview ── */
 .doc-link{color:var(--gold);font-size:0.68rem;cursor:pointer;border-bottom:1px dashed rgba(201,168,76,0.3);}
 .doc-link:hover{border-bottom-style:solid;}
-
-/* ── Logs ── */
 .log-type{display:inline-block;padding:1px 6px;font-size:0.58rem;letter-spacing:0.08em;}
 .log-image{background:rgba(107,150,196,0.1);color:#6b96c4;border:1px solid rgba(107,150,196,0.2);}
 .log-video{background:rgba(196,107,196,0.1);color:#c46bc4;border:1px solid rgba(196,107,196,0.2);}
 
-@media(max-width:900px){.sidebar{width:60px;}.sidebar-logo-text,.sidebar-logo-sub,.sidebar-admin-badge,.nav-item span,.sidebar-user{display:none;}.nav-item{padding:0.75rem;justify-content:center;}.main{margin-left:60px;padding:1.5rem;}.stats-row{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:900px){.sidebar{width:60px;}.sidebar-logo-text,.sidebar-logo-sub,.role-badge,.nav-item span,.sidebar-user{display:none;}.nav-item{padding:0.75rem;justify-content:center;}.main{margin-left:60px;padding:1.5rem;}.stats-row{grid-template-columns:repeat(2,1fr);}}
 </style>
 </head>
 <body>
 
-<!-- ══ Auth Gate ══ -->
+<!-- Auth Gate -->
 <div id="authGate">
   <div class="gate-logo">AI Staging Pro</div>
-  <div class="gate-sub">Admin Dashboard</div>
+  <div class="gate-sub">後台管理系統</div>
   <div class="gate-form">
     <label class="gate-label">電子郵件</label>
     <input class="gate-input" type="email" id="gateEmail" placeholder="admin@email.com" autocomplete="email">
@@ -162,27 +167,26 @@ td.primary{color:var(--text);}
   </div>
 </div>
 
-<!-- ══ App ══ -->
+<!-- App -->
 <div id="app">
-  <!-- Sidebar -->
   <div class="sidebar">
     <div class="sidebar-logo">
       <div class="sidebar-logo-text">ASP</div>
-      <div class="sidebar-logo-sub">Admin Panel</div>
-      <div class="sidebar-admin-badge">ADMIN</div>
+      <div class="sidebar-logo-sub">管理後台</div>
+      <div class="role-badge" id="roleBadge">ADMIN</div>
     </div>
     <nav class="nav">
-      <div class="nav-item active" onclick="showPage('overview')">
+      <div class="nav-item active" id="nav-overview" onclick="showPage('overview')">
         <span class="nav-icon">◈</span><span>總覽</span>
       </div>
-      <div class="nav-item" onclick="showPage('members')">
+      <div class="nav-item" id="nav-members" onclick="showPage('members')">
         <span class="nav-icon">◉</span><span>會員管理</span>
       </div>
-      <div class="nav-item" onclick="showPage('pending')">
+      <div class="nav-item" id="nav-pending" onclick="showPage('pending')">
         <span class="nav-icon">◎</span><span>試用申請</span>
         <span id="pendingBadge" style="display:none;margin-left:auto;background:var(--warning);color:#0A0A0A;font-size:0.58rem;padding:1px 5px;"></span>
       </div>
-      <div class="nav-item" onclick="showPage('logs')">
+      <div class="nav-item" id="nav-logs" onclick="showPage('logs')">
         <span class="nav-icon">◷</span><span>生成紀錄</span>
       </div>
     </nav>
@@ -192,19 +196,18 @@ td.primary{color:var(--text);}
     </div>
   </div>
 
-  <!-- Main -->
   <div class="main">
 
-    <!-- ── 總覽 ── -->
+    <!-- 總覽 -->
     <div class="page active" id="page-overview">
       <div class="page-header">
-        <div class="page-title">Dashboard</div>
+        <div class="page-title">總覽</div>
         <div class="page-sub">AI Staging Pro 後台管理系統</div>
       </div>
       <div class="stats-row" id="statsRow">
         <div class="stat-card"><div class="stat-label">總會員數</div><div class="stat-val" id="statTotal">—</div><div class="stat-sub">所有註冊用戶</div></div>
         <div class="stat-card"><div class="stat-label">待審核申請</div><div class="stat-val" id="statPending" style="color:var(--warning)">—</div><div class="stat-sub">trial_pending</div></div>
-        <div class="stat-card"><div class="stat-label">訂閱用戶</div><div class="stat-val" id="statSubscriber" style="color:var(--success)">—</div><div class="stat-sub">subscriber</div></div>
+        <div class="stat-card"><div class="stat-label">試用中用戶</div><div class="stat-val" id="statTrial" style="color:var(--success)">—</div><div class="stat-sub">trial</div></div>
         <div class="stat-card"><div class="stat-label">總生成次數</div><div class="stat-val" id="statLogs">—</div><div class="stat-sub">累計生成紀錄</div></div>
       </div>
       <div class="table-wrap">
@@ -219,11 +222,11 @@ td.primary{color:var(--text);}
       </div>
     </div>
 
-    <!-- ── 會員管理 ── -->
+    <!-- 會員管理 -->
     <div class="page" id="page-members">
       <div class="page-header">
         <div class="page-title">會員管理</div>
-        <div class="page-sub">查看與管理所有用戶帳號</div>
+        <div class="page-sub">查看所有用戶帳號</div>
       </div>
       <div class="table-wrap">
         <div class="table-toolbar">
@@ -234,13 +237,13 @@ td.primary{color:var(--text);}
           </div>
         </div>
         <table>
-          <thead><tr><th>Email</th><th>角色</th><th>點數</th><th>總消耗</th><th>建立時間</th><th>操作</th></tr></thead>
+          <thead><tr><th>Email</th><th>角色</th><th>點數</th><th>總消耗</th><th>建立時間</th><th id="memberActionHeader">操作</th></tr></thead>
           <tbody id="membersList"><tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr></tbody>
         </table>
       </div>
     </div>
 
-    <!-- ── 試用申請 ── -->
+    <!-- 試用申請 -->
     <div class="page" id="page-pending">
       <div class="page-header">
         <div class="page-title">試用申請審核</div>
@@ -258,7 +261,7 @@ td.primary{color:var(--text);}
       </div>
     </div>
 
-    <!-- ── 生成紀錄 ── -->
+    <!-- 生成紀錄 -->
     <div class="page" id="page-logs">
       <div class="page-header">
         <div class="page-title">生成紀錄</div>
@@ -276,10 +279,10 @@ td.primary{color:var(--text);}
       </div>
     </div>
 
-  </div><!-- /.main -->
-</div><!-- /#app -->
+  </div>
+</div>
 
-<!-- ══ Credits Modal ══ -->
+<!-- Credits Modal（僅 admin 可用）-->
 <div class="modal-overlay" id="creditsModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('creditsModal')">✕</button>
@@ -304,39 +307,41 @@ td.primary{color:var(--text);}
   </div>
 </div>
 
-<!-- ══ Toast ══ -->
 <div class="toast" id="toast"></div>
 
 <script>
 const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 let adminUser = null;
+let adminRole = null; // 'admin' | 'manager'
 let allMembers = [];
 let editingUserId = null;
 
-// ── Gate Login ──
+// ── 登入 ──
 async function doGateLogin(){
   const email    = document.getElementById('gateEmail').value.trim();
   const password = document.getElementById('gatePassword').value;
   const msgEl    = document.getElementById('gateMsg');
   msgEl.textContent = '';
   if(!email || !password){ msgEl.textContent = '請填寫帳號與密碼'; return; }
-
   const btn = document.querySelector('.gate-btn span');
   btn.innerHTML = '<span class="spin"></span>驗證中…';
-
   try {
     const { data, error } = await _sb.auth.signInWithPassword({ email, password });
     if(error) throw error;
-
-    // 確認是 admin
     const { data: profile } = await _sb.from('profiles').select('role').eq('id', data.user.id).single();
-    if(profile?.role !== 'admin'){
+    if(profile?.role !== 'admin' && profile?.role !== 'manager'){
       await _sb.auth.signOut();
-      throw new Error('此帳號沒有管理員權限');
+      throw new Error('此帳號沒有管理員或管理者權限');
     }
-
     adminUser = data.user;
+    adminRole = profile.role;
+    // 設定角色徽章
+    const badge = document.getElementById('roleBadge');
+    badge.textContent = adminRole === 'admin' ? 'ADMIN' : 'MANAGER';
+    badge.className = 'role-badge ' + adminRole;
     document.getElementById('sidebarUser').textContent = email;
+    // Manager 隱藏不需要的功能
+    applyRoleRestrictions();
     document.getElementById('authGate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadAll();
@@ -347,36 +352,43 @@ async function doGateLogin(){
   }
 }
 
+function applyRoleRestrictions(){
+  if(adminRole === 'manager'){
+    // Manager 的會員頁不顯示「操作」欄標題（調整點數/改角色）
+    const header = document.getElementById('memberActionHeader');
+    if(header) header.style.display = 'none';
+  }
+}
+
 async function doLogout(){
   await _sb.auth.signOut();
   location.reload();
 }
 
-// ── Navigation ──
+// ── 導覽 ──
 function showPage(name){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  document.querySelectorAll('.nav-item')[['overview','members','pending','logs'].indexOf(name)].classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
   if(name === 'members') loadMembers();
   if(name === 'pending') loadPending();
   if(name === 'logs')    loadLogs();
 }
 
-// ── Load All ──
 function loadAll(){
   loadStats();
   loadOverviewPending();
 }
 
-// ── Stats ──
+// ── 統計 ──
 async function loadStats(){
   const { data: profiles } = await _sb.from('profiles').select('role');
   const { count: logCount } = await _sb.from('generation_logs').select('*', { count:'exact', head:true });
   if(profiles){
-    document.getElementById('statTotal').textContent      = profiles.length;
-    document.getElementById('statPending').textContent    = profiles.filter(p => p.role === 'trial_pending').length;
-    document.getElementById('statSubscriber').textContent = profiles.filter(p => p.role === 'subscriber').length;
+    document.getElementById('statTotal').textContent   = profiles.length;
+    document.getElementById('statPending').textContent = profiles.filter(p => p.role === 'trial_pending').length;
+    document.getElementById('statTrial').textContent   = profiles.filter(p => p.role === 'trial').length;
     const pendingCount = profiles.filter(p => p.role === 'trial_pending').length;
     const badge = document.getElementById('pendingBadge');
     if(pendingCount > 0){ badge.textContent = pendingCount; badge.style.display = 'inline'; }
@@ -385,7 +397,7 @@ async function loadStats(){
   document.getElementById('statLogs').textContent = logCount ?? 0;
 }
 
-// ── Overview Pending ──
+// ── 總覽：最新試用申請 ──
 async function loadOverviewPending(){
   const { data } = await _sb.from('profiles')
     .select('id, email, role, created_at, broker_doc_url')
@@ -409,7 +421,7 @@ async function loadOverviewPending(){
     </tr>`).join('');
 }
 
-// ── Members ──
+// ── 會員清單 ──
 async function loadMembers(){
   document.getElementById('membersList').innerHTML = '<tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr>';
   const { data } = await _sb.from('profiles')
@@ -432,10 +444,12 @@ function renderMembers(list){
       <td><strong style="color:var(--gold)">${u.credits ?? 0}</strong></td>
       <td>${u.total_used ?? 0}</td>
       <td>${fmtDate(u.created_at)}</td>
-      <td><div class="btn-row">
-        <button class="btn btn-credits btn-sm" onclick="openCreditsModal('${u.id}','${u.email}',${u.credits??0})">調整點數</button>
-        ${u.role !== 'admin' ? `<button class="btn btn-sm" style="border-color:var(--border);color:var(--text-muted);" onclick="changeRole('${u.id}','${u.email}','${u.role}')">改角色</button>` : ''}
-      </div></td>
+      <td>${adminRole === 'admin' ? `
+        <div class="btn-row">
+          <button class="btn btn-credits btn-sm" onclick="openCreditsModal('${u.id}','${u.email}',${u.credits??0})">調整點數</button>
+          ${u.role !== 'admin' ? `<button class="btn btn-sm" style="border-color:var(--border);color:var(--text-muted);" onclick="changeRole('${u.id}','${u.email}','${u.role}')">改角色</button>` : ''}
+        </div>` : '<span style="color:var(--text-subtle);font-size:0.68rem;">—</span>'}
+      </td>
     </tr>`).join('');
 }
 
@@ -444,7 +458,7 @@ function filterMembers(){
   renderMembers(allMembers.filter(u => (u.email||'').toLowerCase().includes(q)));
 }
 
-// ── Pending ──
+// ── 試用申請 ──
 async function loadPending(){
   document.getElementById('pendingList').innerHTML = '<tr class="loading-row"><td colspan="4"><span class="spin"></span>載入中…</td></tr>';
   const { data } = await _sb.from('profiles')
@@ -464,13 +478,13 @@ async function loadPending(){
         ? `<a class="doc-link" onclick="viewDoc('${u.broker_doc_url}')">查看文件 ↗</a>`
         : '<span style="color:var(--text-subtle)">未上傳</span>'}</td>
       <td><div class="btn-row">
-        <button class="btn btn-approve" onclick="approveUser('${u.id}','${u.email}')">✓ 核准（給 10 點）</button>
+        <button class="btn btn-approve" onclick="approveUser('${u.id}','${u.email}')">✓ 核准（給 60 點）</button>
         <button class="btn btn-danger" onclick="rejectUser('${u.id}','${u.email}')">✕ 拒絕</button>
       </div></td>
     </tr>`).join('');
 }
 
-// ── Approve / Reject ──
+// ── 核准 / 拒絕 ──
 async function approveUser(userId, email){
   if(!confirm(`核准 ${email} 的試用申請並給予 60 點？`)) return;
   const { error } = await _sb.from('profiles')
@@ -482,13 +496,13 @@ async function approveUser(userId, email){
 }
 
 async function rejectUser(userId, email){
-  if(!confirm(`確定拒絕 ${email} 的申請並刪除帳號？`)) return;
+  if(!confirm(`確定拒絕 ${email} 的申請？`)) return;
   await _sb.from('profiles').update({ role: 'free' }).eq('id', userId);
   showToast(`已拒絕 ${email}`);
   loadStats(); loadOverviewPending(); loadPending();
 }
 
-// ── Logs ──
+// ── 生成紀錄 ──
 async function loadLogs(){
   document.getElementById('logsList').innerHTML = '<tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr>';
   const { data } = await _sb.from('generation_logs')
@@ -511,22 +525,20 @@ async function loadLogs(){
     </tr>`).join('');
 }
 
-// ── Credits Modal ──
+// ── 調整點數（僅 admin）──
 function openCreditsModal(userId, email, currentCredits){
+  if(adminRole !== 'admin'){ showToast('您沒有此功能的權限'); return; }
   editingUserId = userId;
   document.getElementById('creditsModalUser').textContent = email;
   document.getElementById('creditsModalCurrent').value   = currentCredits;
   document.getElementById('creditsModalNew').value       = currentCredits;
   document.getElementById('creditsModal').classList.add('open');
 }
-
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-
 function quickAdd(n){
   const cur = parseInt(document.getElementById('creditsModalCurrent').value) || 0;
   document.getElementById('creditsModalNew').value = cur + n;
 }
-
 async function saveCredits(){
   const newVal = parseInt(document.getElementById('creditsModalNew').value);
   if(isNaN(newVal) || newVal < 0){ showToast('請輸入有效的點數'); return; }
@@ -539,10 +551,11 @@ async function saveCredits(){
   loadMembers(); loadStats();
 }
 
-// ── Change Role ──
+// ── 改角色（僅 admin）──
 async function changeRole(userId, email, currentRole){
-  const roles = ['free','trial','subscriber','admin'];
-  const next = prompt(`${email} 目前角色：${currentRole}\n\n輸入新角色：free / trial / subscriber / admin`, currentRole);
+  if(adminRole !== 'admin'){ showToast('您沒有此功能的權限'); return; }
+  const roles = ['free','trial','subscriber','manager','admin'];
+  const next = prompt(`${email} 目前角色：${currentRole}\n\n輸入新角色：free / trial / subscriber / manager / admin`, currentRole);
   if(!next || !roles.includes(next)) return;
   const { error } = await _sb.from('profiles')
     .update({ role: next, updated_at: new Date().toISOString() })
@@ -552,31 +565,28 @@ async function changeRole(userId, email, currentRole){
   loadMembers();
 }
 
-// ── View Doc ──
+// ── 查看文件 ──
 async function viewDoc(path){
   const { data } = await _sb.storage.from('broker-docs').createSignedUrl(path, 60);
   if(data?.signedUrl) window.open(data.signedUrl, '_blank');
   else showToast('無法取得文件連結');
 }
 
-// ── Helpers ──
+// ── 工具函式 ──
 function roleBadge(role){
-  return `<span class="role-badge role-${role||'free'}">${role||'free'}</span>`;
+  return `<span class="role-tag role-${role||'free'}">${role||'free'}</span>`;
 }
-
 function fmtDate(str){
   if(!str) return '—';
   const d = new Date(str);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
-
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// Close modal on overlay click
 document.getElementById('creditsModal').addEventListener('click', function(e){
   if(e.target === this) closeModal('creditsModal');
 });
