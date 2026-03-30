@@ -660,10 +660,17 @@ async function startGeneration(){
   const userCredits=currentProfile?.credits??0;const userRole=currentProfile?.role??'';
   if(userRole!=='admin'&&userCredits<20){showToast('點數不足！請購買方案補充點數');return;}
   if(userRole==='trial_pending'){showToast('您的試用申請審核中，請稍候通知');return;}
+
+  // ── 並發限制 ──
+  const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
+  if(genCheck?.is_generating){showToast('您有一個生成任務正在進行中，請稍候再試');return;}
+  await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
+
   document.getElementById('genBtn').disabled=true;
   document.getElementById('progressWrap').classList.add('visible');
   document.getElementById('resultSection').style.display='none';
   document.getElementById('errorBox').classList.remove('visible');
+
   try{
     uploadedImageUrl=await uploadImageToFal(uploadedImageBase64);setProgress('影片生成中…',12);
     generatedImageUrl=await generateStagedImage(uploadedImageUrl,selectedStyle,selectedRoom);
@@ -672,19 +679,23 @@ async function startGeneration(){
     generatedVideoUrl=await generateVideo(uploadedImageUrl,generatedImageUrl,selectedStyle);
     if(!generatedVideoUrl)throw new Error('圖生影未回傳結果，請重試');setProgress('影片生成中…',100);
     const deducted=await deductCredits(20);if(!deducted){showToast('點數扣除失敗，請重新整理後再試');}
-    setTimeout(()=>{
+    setTimeout(async()=>{
+      await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
       document.getElementById('progressWrap').classList.remove('visible');
       document.getElementById('resultSection').style.display='block';
       const sName=STYLE_PROMPTS[selectedStyle].label;const rName=ROOM_NAMES[selectedRoom];
       document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
       document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
-      document.getElementById('genBtn').disabled=false;showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
+      document.getElementById('genBtn').disabled=false;
+      showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
     },600);
   }catch(err){
+    await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
     document.getElementById('progressWrap').classList.remove('visible');
     document.getElementById('errorBox').classList.add('visible');
     document.getElementById('errorBody').textContent=`錯誤：${err.message}\n\n點數未扣除，請確認 API Key 是否正確，或稍後再試。`;
-    document.getElementById('genBtn').disabled=false;console.error('Generation error:',err);
+    document.getElementById('genBtn').disabled=false;
+    console.error('Generation error:',err);
   }
 }
 async function downloadFile(url,filename){
