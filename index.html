@@ -1117,7 +1117,12 @@ async function startGeneration(){
   const userCredits=currentProfile?.credits??0;const userRole=currentProfile?.role??'';
   if(userRole!=='admin'&&userCredits<20){showToast('點數不足！請購買方案補充點數');return;}
   if(userRole==='trial_pending'){showToast('您的試用申請審核中，請稍候通知');return;}
-  const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
+  if(userRole==='trial'&&currentProfile?.trial_expires_at){
+  if(new Date(currentProfile.trial_expires_at)<new Date()){
+    showToast('試用期已到期，請選擇方案繼續使用');return;
+  }
+}
+　const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
   if(genCheck?.is_generating){showToast('您有一個生成任務正在進行中，請稍候再試');return;}
   await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
   document.getElementById('genBtn').disabled=true;
