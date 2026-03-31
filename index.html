@@ -646,6 +646,7 @@ input[type="file"] { display: none; }
     <div class="logo-sub">空屋變夢想家</div>
   </div>
   <div class="header-right">
+    <a id="libraryBtn" href="/library.html" style="display:none;padding:7px 16px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);background:transparent;border:1px solid var(--border);text-decoration:none;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='rgba(26,26,24,0.1)'">我的紀錄</a>
     <div class="points-badge" id="pointsDisplay">剩餘點數 — 點</div>
     <div class="user-menu" id="userMenu">
       <button class="auth-trigger-btn" id="authTriggerBtn" onclick="handleAuthBtn()">登入 / 註冊</button>
@@ -713,11 +714,7 @@ input[type="file"] { display: none; }
         <div class="room-item" onclick="selectRoom(this,'study')">📚 書房</div>
         <div class="room-item" onclick="selectRoom(this,'multi_purpose')">🔄 多功能房</div>
       </div>
-      <div class="cost-bar">
-        <span class="cost-label">影片生成（圖生圖 + 圖生影）</span>
-        <span class="cost-val">消耗 20 點</span>
-      </div>
-      <button class="gen-btn" id="genBtn" onclick="startGeneration()" disabled><span>開始生成影片</span></button>
+      <button class="gen-btn" id="genBtn" onclick="startGeneration()" disabled><span>開始生成影片｜消耗 20 點</span></button>
       <div class="progress-wrap" id="progressWrap">
         <div style="height:16px;"></div>
         <div class="progress-header">
@@ -881,9 +878,14 @@ function updateHeaderUI(){
     badge.textContent=role==='admin'?'點數：∞':`剩餘 ${credits} 點`;
     badge.className='points-badge'+(credits<5&&role!=='admin'?' low':'');
     if(emailEl)emailEl.textContent=currentUser.email;
+    const libBtn=document.getElementById('libraryBtn');
+    if(libBtn)libBtn.style.display='inline-block';
   }else{
     btn.textContent='登入 / 註冊';btn.classList.remove('logged-in');
-    badge.style.display='none';closeUserMenu();
+    badge.style.display='none';
+    const libBtn=document.getElementById('libraryBtn');
+    if(libBtn)libBtn.style.display='none';
+    closeUserMenu();
   }
 }
 function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').classList.toggle('open');}else{openAuth();}}
@@ -995,22 +997,6 @@ function processImage(file){
 }
 
 function runPreCheck(){
-  if(!currentUser){
-    const pc=document.getElementById('precheck');
-    const pb=document.getElementById('precheckBody');
-    pc.style.display='block';
-    pc.className='precheck';
-    pb.innerHTML=`
-      <div style="font-size:12px;color:var(--ink-muted);line-height:1.8;">
-        🔒 請先
-        <a onclick="openAuth('login')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">登入</a>
-        或
-        <a onclick="openAuth('trial')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">申請試用</a>
-        才能使用 AI 圖片分析與生成功能。
-      </div>`;
-    checkReady();
-    return;
-  }
   const pc=document.getElementById('precheck');
   const pb=document.getElementById('precheckBody');
   const btn=document.getElementById('genBtn');
@@ -1032,6 +1018,7 @@ function runPreCheck(){
     }finally{checkReady();}
   })();
 }
+
 function renderVisionResult(pc,pb,result){
   const overall=result.overall||'warn';
   const classMap={pass:'vision-pass',warn:'vision-warn',fail:'vision-fail'};
@@ -1154,6 +1141,20 @@ async function startGeneration(){
       document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
       document.getElementById('genBtn').disabled=false;
       showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
+      // ── 背景存檔到 Supabase Storage ──
+      if(currentUser){
+        fetch('/api/save-generation',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            imageUrl: generatedImageUrl,
+            videoUrl: generatedVideoUrl,
+            userId:   currentUser.id,
+            style:    selectedStyle,
+            roomType: selectedRoom
+          })
+        }).catch(e=>console.warn('存檔失敗（不影響使用）:',e));
+      }
     },600);
   }catch(err){
     await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
