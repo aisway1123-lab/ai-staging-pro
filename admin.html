@@ -488,7 +488,12 @@ async function loadPending(){
 async function approveUser(userId, email){
   if(!confirm(`核准 ${email} 的試用申請並給予 60 點？`)) return;
   const { error } = await _sb.from('profiles')
-    .update({ role: 'trial', credits: 60, updated_at: new Date().toISOString() })
+    .update({ 
+  role: 'trial', 
+  credits: 60, 
+  trial_expires_at: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
+  updated_at: new Date().toISOString() 
+})
     .eq('id', userId);
   if(error){ showToast('操作失敗：' + error.message); return; }
   showToast(`✓ 已核准 ${email}，給予 60 點`);
