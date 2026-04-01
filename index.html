@@ -650,6 +650,7 @@ input[type="file"] { display: none; }
       <button class="auth-trigger-btn" id="authTriggerBtn" onclick="handleAuthBtn()">登入 / 註冊</button>
       <div class="user-menu-dropdown" id="userMenuDropdown">
         <div style="padding:10px 16px;font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);border-bottom:1px solid var(--border);" id="userEmailDisplay"></div>
+        <button class="user-menu-item" onclick="closeUserMenu();window.location.href='/pricing.html'">購買點數 / 訂閱</button>
         <button class="user-menu-item" onclick="closeUserMenu()">帳號設定（即將推出）</button>
         <div class="user-menu-sep"></div>
         <button class="user-menu-item danger" onclick="handleSignOut()">登出</button>
