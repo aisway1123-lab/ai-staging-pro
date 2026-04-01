@@ -641,9 +641,7 @@ input[type="file"] { display: none; }
 
 <header>
   <div class="logo">
-    <div class="logo-main">AI Staging Pro</div>
-    <div class="logo-divider"></div>
-    <div class="logo-sub">空屋變夢想家</div>
+    <img src="/logo-horizontal.png" alt="AI Staging Pro" style="height:36px;width:auto;object-fit:contain;">
   </div>
   <div class="header-right">
     <a id="libraryBtn" href="/library.html" style="display:none;padding:7px 16px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);background:transparent;border:1px solid var(--border);text-decoration:none;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='rgba(26,26,24,0.1)'">我的紀錄</a>
@@ -652,13 +650,6 @@ input[type="file"] { display: none; }
       <button class="auth-trigger-btn" id="authTriggerBtn" onclick="handleAuthBtn()">登入 / 註冊</button>
       <div class="user-menu-dropdown" id="userMenuDropdown">
         <div style="padding:10px 16px;font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);border-bottom:1px solid var(--border);" id="userEmailDisplay"></div>
-        <div style="padding:8px 16px;border-bottom:1px solid var(--border);">
-          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:4px;">我的推薦碼</div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span id="referralCodeDisplay" style="font-family:var(--font-mono);font-size:12px;color:var(--green);font-weight:500;letter-spacing:0.12em;">—</span>
-            <button onclick="copyReferralCode()" style="background:none;border:1px solid var(--border);color:var(--ink-muted);font-family:var(--font-mono);font-size:9px;padding:2px 7px;cursor:pointer;letter-spacing:0.06em;">複製</button>
-          </div>
-        </div>
         <button class="user-menu-item" onclick="closeUserMenu()">帳號設定（即將推出）</button>
         <div class="user-menu-sep"></div>
         <button class="user-menu-item danger" onclick="handleSignOut()">登出</button>
@@ -845,8 +836,6 @@ input[type="file"] { display: none; }
           <div class="upload-dz-sub">JPG / PNG / PDF｜最大 5MB</div>
         </div>
         <input type="file" id="docFile" accept=".jpg,.jpeg,.png,.pdf" onchange="handleDocFile(this)" style="display:none">
-        <label class="au-label">推薦碼（選填）</label>
-        <input class="au-input" type="text" id="referralCode" placeholder="朋友的推薦碼（選填）" style="text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.9rem;">
         <button class="au-submit" id="trialBtn" onclick="doTrialApply()"><span>提交申請</span></button>
       </div>
     </div>
@@ -887,8 +876,6 @@ function updateHeaderUI(){
     badge.textContent=role==='admin'?'點數：∞':`剩餘 ${credits} 點`;
     badge.className='points-badge'+(credits<5&&role!=='admin'?' low':'');
     if(emailEl)emailEl.textContent=currentUser.email;
-    const refEl=document.getElementById('referralCodeDisplay');
-    if(refEl)refEl.textContent=currentProfile?.referral_code||'—';
     const libBtn=document.getElementById('libraryBtn');
     if(libBtn)libBtn.style.display='inline-block';
   }else{
@@ -957,12 +944,7 @@ async function doTrialApply(){
     const ext=file.name.split('.').pop();
     const path=`${userId}/broker-cert-${Date.now()}.${ext}`;
     const{error:uploadErr}=await _sb.storage.from('broker-docs').upload(path,file,{upsert:true});if(uploadErr)throw uploadErr;
-    const refCode=document.getElementById('referralCode')?.value.trim().toUpperCase()||null;
-    await _sb.from('profiles').update({
-      broker_doc_url:path,
-      role:'trial_pending',
-      referred_by:refCode||null
-    }).eq('id',userId);
+    await _sb.from('profiles').update({broker_doc_url:path,role:'trial_pending'}).eq('id',userId);
     showAuMsg('申請已提交！我們將在 1–2 個工作天內審核並通知您。','success');
   }catch(e){showAuMsg(e.message||'提交失敗，請稍後再試');}
   finally{setAuLoading('trialBtn',false,'提交申請');}
@@ -1013,6 +995,13 @@ function processImage(file){
 }
 
 function runPreCheck(){
+  if(!currentUser){
+    const pc=document.getElementById('precheck');
+    const pb=document.getElementById('precheckBody');
+    pc.style.display='block';pc.className='precheck';
+    pb.innerHTML=`<div style="font-size:12px;color:var(--ink-muted);line-height:1.8;">🔒 請先 <a onclick="openAuth('login')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">登入</a> 或 <a onclick="openAuth('trial')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">申請試用</a> 才能使用 AI 圖片分析與生成功能。</div>`;
+    checkReady();return;
+  }
   const pc=document.getElementById('precheck');
   const pb=document.getElementById('precheckBody');
   const btn=document.getElementById('genBtn');
@@ -1194,17 +1183,6 @@ async function downloadFile(url,filename){
 function downloadImage(){if(!generatedImageUrl){showToast('效果圖尚未生成');return;}downloadFile(generatedImageUrl,'ai-staging-effect.png');}
 function downloadVideo(){if(!generatedVideoUrl){showToast('尚無影片可下載');return;}downloadFile(generatedVideoUrl,`ai-staging-${selectedStyle}-${selectedRoom}-${Date.now()}.mp4`);}
 function resetAll(){document.getElementById('resultSection').style.display='none';document.getElementById('progressWrap').classList.remove('visible');document.getElementById('errorBox').classList.remove('visible');document.getElementById('genBtn').disabled=false;generatedVideoUrl=null;generatedImageUrl=null;}
-function copyReferralCode(){
-  const code=currentProfile?.referral_code;
-  if(!code){showToast('推薦碼載入中，請稍候');return;}
-  navigator.clipboard.writeText(code).then(()=>showToast('✓ 推薦碼已複製：'+code)).catch(()=>{
-    const el=document.createElement('textarea');
-    el.value=code;document.body.appendChild(el);el.select();
-    document.execCommand('copy');document.body.removeChild(el);
-    showToast('✓ 推薦碼已複製：'+code);
-  });
-  closeUserMenu();
-}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
 initAuth();
 </script>
