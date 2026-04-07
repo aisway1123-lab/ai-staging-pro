@@ -941,22 +941,22 @@ async function doTrialApply(){
   if(file.size>5*1024*1024){showAuMsg('檔案大小不可超過 5MB');return;}
   setAuLoading('trialBtn',true);
   try{
+    // 1. 建立帳號
     const{data,error}=await _sb.auth.signUp({email,password});
     if(error)throw error;
     const userId=data.user?.id;
     if(!userId)throw new Error('帳號建立失敗');
+    // 2. 前端直接上傳名片到 Supabase Storage
     const ext=file.name.split('.').pop().toLowerCase();
-    const base64=await new Promise((resolve,reject)=>{
-      const r=new FileReader();
-      r.onload=e=>resolve(e.target.result.split(',')[1]);
-      r.onerror=reject;
-      r.readAsDataURL(file);
-    });
+    const docPath=`${userId}/broker-cert-${Date.now()}.${ext}`;
+    const{error:uploadErr}=await _sb.storage.from('broker-docs').upload(docPath,file,{upsert:true});
+    if(uploadErr)throw new Error('文件上傳失敗：'+uploadErr.message);
+    // 3. 後端 API 更新 role（繞過 RLS）
     const refCode=document.getElementById('referralCode')?.value.trim().toUpperCase()||null;
     const apiRes=await fetch('/api/trial-apply',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({userId,docBase64:base64,docExt:ext,referralCode:refCode})
+      body:JSON.stringify({userId,docPath,referralCode:refCode})
     });
     const apiData=await apiRes.json();
     if(!apiData.success)throw new Error(apiData.error||'申請提交失敗');
