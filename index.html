@@ -941,25 +941,36 @@ async function doTrialApply(){
   if(file.size>5*1024*1024){showAuMsg('檔案大小不可超過 5MB');return;}
   setAuLoading('trialBtn',true);
   try{
-    // 1. 建立帳號
+    // 步驟一：建立帳號
     const{data,error}=await _sb.auth.signUp({email,password});
     if(error)throw error;
     const userId=data.user?.id;
     if(!userId)throw new Error('帳號建立失敗');
-    // 2. 前端直接上傳名片到 Supabase Storage
+    // 步驟二：取得預簽名上傳 URL
     const ext=file.name.split('.').pop().toLowerCase();
-    const docPath=`${userId}/broker-cert-${Date.now()}.${ext}`;
-    const{error:uploadErr}=await _sb.storage.from('broker-docs').upload(docPath,file,{upsert:true});
-    if(uploadErr)throw new Error('文件上傳失敗：'+uploadErr.message);
-    // 3. 後端 API 更新 role（繞過 RLS）
-    const refCode=document.getElementById('referralCode')?.value.trim().toUpperCase()||null;
-    const apiRes=await fetch('/api/trial-apply',{
+    const urlRes=await fetch('/api/trial-apply',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({userId,docPath,referralCode:refCode})
+      body:JSON.stringify({action:'getUploadUrl',userId,docExt:ext})
     });
-    const apiData=await apiRes.json();
-    if(!apiData.success)throw new Error(apiData.error||'申請提交失敗');
+    const urlData=await urlRes.json();
+    if(!urlData.success)throw new Error(urlData.error||'無法取得上傳連結');
+    // 步驟三：直接上傳到 Supabase（用預簽名 URL，不受 RLS 限制）
+    const uploadRes=await fetch(urlData.signedUrl,{
+      method:'PUT',
+      headers:{'Content-Type': file.type||'application/octet-stream'},
+      body:file
+    });
+    if(!uploadRes.ok)throw new Error('文件上傳失敗，請稍後再試');
+    // 步驟四：通知後端更新 role
+    const refCode=document.getElementById('referralCode')?.value.trim().toUpperCase()||null;
+    const confirmRes=await fetch('/api/trial-apply',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'confirm',userId,docPath:urlData.path,referralCode:refCode})
+    });
+    const confirmData=await confirmRes.json();
+    if(!confirmData.success)throw new Error(confirmData.error||'申請提交失敗');
     showAuMsg('申請已提交！我們將在 1–2 個工作天內審核並通知您。','success');
   }catch(e){showAuMsg(e.message||'提交失敗，請稍後再試');}
   finally{setAuLoading('trialBtn',false,'提交申請');}
