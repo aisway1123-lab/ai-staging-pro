@@ -4,6 +4,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,7 +14,12 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { userId, docBase64, docExt, referralCode } = req.body;
+    // 手動解析 body（防止 Vercel 解析失敗）
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch(e) { return res.status(400).json({ error: 'Invalid JSON' }); }
+    }
+    const { userId, docBase64, docExt, referralCode } = body;
     if (!userId || !docBase64 || !docExt) {
       return res.status(400).json({ error: '缺少必要參數' });
     }
