@@ -641,7 +641,9 @@ input[type="file"] { display: none; }
 
 <header>
   <div class="logo">
-    <img src="/logo-horizontal.png" alt="AI Staging Pro" style="height:60px;width:auto;object-fit:contain;">
+    <div class="logo-main">AI Staging Pro</div>
+    <div class="logo-divider"></div>
+    <div class="logo-sub">空屋變夢想家</div>
   </div>
   <div class="header-right">
     <a id="libraryBtn" href="/library.html" style="display:none;padding:7px 16px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);background:transparent;border:1px solid var(--border);text-decoration:none;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='rgba(26,26,24,0.1)'">我的紀錄</a>
@@ -650,7 +652,6 @@ input[type="file"] { display: none; }
       <button class="auth-trigger-btn" id="authTriggerBtn" onclick="handleAuthBtn()">登入 / 註冊</button>
       <div class="user-menu-dropdown" id="userMenuDropdown">
         <div style="padding:10px 16px;font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);border-bottom:1px solid var(--border);" id="userEmailDisplay"></div>
-        <button class="user-menu-item" onclick="closeUserMenu();window.location.href='/pricing.html'">購買點數 / 訂閱</button>
         <button class="user-menu-item" onclick="closeUserMenu()">帳號設定（即將推出）</button>
         <div class="user-menu-sep"></div>
         <button class="user-menu-item danger" onclick="handleSignOut()">登出</button>
@@ -940,12 +941,25 @@ async function doTrialApply(){
   if(file.size>5*1024*1024){showAuMsg('檔案大小不可超過 5MB');return;}
   setAuLoading('trialBtn',true);
   try{
-    const{data,error}=await _sb.auth.signUp({email,password});if(error)throw error;
-    const userId=data.user?.id;if(!userId)throw new Error('帳號建立失敗');
-    const ext=file.name.split('.').pop();
-    const path=`${userId}/broker-cert-${Date.now()}.${ext}`;
-    const{error:uploadErr}=await _sb.storage.from('broker-docs').upload(path,file,{upsert:true});if(uploadErr)throw uploadErr;
-    await _sb.from('profiles').update({broker_doc_url:path,role:'trial_pending'}).eq('id',userId);
+    const{data,error}=await _sb.auth.signUp({email,password});
+    if(error)throw error;
+    const userId=data.user?.id;
+    if(!userId)throw new Error('帳號建立失敗');
+    const ext=file.name.split('.').pop().toLowerCase();
+    const base64=await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=e=>resolve(e.target.result.split(',')[1]);
+      r.onerror=reject;
+      r.readAsDataURL(file);
+    });
+    const refCode=document.getElementById('referralCode')?.value.trim().toUpperCase()||null;
+    const apiRes=await fetch('/api/trial-apply',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({userId,docBase64:base64,docExt:ext,referralCode:refCode})
+    });
+    const apiData=await apiRes.json();
+    if(!apiData.success)throw new Error(apiData.error||'申請提交失敗');
     showAuMsg('申請已提交！我們將在 1–2 個工作天內審核並通知您。','success');
   }catch(e){showAuMsg(e.message||'提交失敗，請稍後再試');}
   finally{setAuLoading('trialBtn',false,'提交申請');}
@@ -996,13 +1010,6 @@ function processImage(file){
 }
 
 function runPreCheck(){
-  if(!currentUser){
-    const pc=document.getElementById('precheck');
-    const pb=document.getElementById('precheckBody');
-    pc.style.display='block';pc.className='precheck';
-    pb.innerHTML=`<div style="font-size:12px;color:var(--ink-muted);line-height:1.8;">🔒 請先 <a onclick="openAuth('login')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">登入</a> 或 <a onclick="openAuth('trial')" style="color:var(--green);cursor:pointer;border-bottom:1px solid var(--green);font-weight:500;">申請試用</a> 才能使用 AI 圖片分析與生成功能。</div>`;
-    checkReady();return;
-  }
   const pc=document.getElementById('precheck');
   const pb=document.getElementById('precheckBody');
   const btn=document.getElementById('genBtn');
