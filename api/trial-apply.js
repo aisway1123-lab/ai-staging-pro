@@ -4,8 +4,6 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -14,43 +12,22 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // 手動解析 body（防止 Vercel 解析失敗）
-    let body = req.body;
-    if (typeof body === 'string') {
-      try { body = JSON.parse(body); } catch(e) { return res.status(400).json({ error: 'Invalid JSON' }); }
-    }
-    const { userId, docBase64, docExt, referralCode } = body;
-    if (!userId || !docBase64 || !docExt) {
+    // 只接收 userId、docPath、referralCode（不傳檔案內容）
+    const { userId, docPath, referralCode } = req.body;
+    if (!userId || !docPath) {
       return res.status(400).json({ error: '缺少必要參數' });
     }
 
-    // 用 service role key，可以繞過 RLS
+    // 用 service role key 繞過 RLS 更新 profile
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // 上傳名片到 Storage
-    const path = `${userId}/broker-cert-${Date.now()}.${docExt}`;
-    const fileBuffer = Buffer.from(docBase64, 'base64');
-
-    const { error: uploadErr } = await supabase.storage
-      .from('broker-docs')
-      .upload(path, fileBuffer, {
-        contentType: docExt === 'pdf' ? 'application/pdf' : `image/${docExt}`,
-        upsert: true
-      });
-
-    if (uploadErr) {
-      console.error('Storage upload error:', uploadErr);
-      return res.status(500).json({ error: '文件上傳失敗：' + uploadErr.message });
-    }
-
-    // 更新 profile（service role 不受 RLS 限制）
     const { error: updateErr } = await supabase
       .from('profiles')
       .update({
-        broker_doc_url: path,
+        broker_doc_url: docPath,
         role:           'trial_pending',
         referred_by:    referralCode || null,
         updated_at:     new Date().toISOString()
