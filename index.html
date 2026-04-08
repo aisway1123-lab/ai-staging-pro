@@ -652,6 +652,7 @@ input[type="file"] { display: none; }
       <button class="auth-trigger-btn" id="authTriggerBtn" onclick="handleAuthBtn()">登入 / 註冊</button>
       <div class="user-menu-dropdown" id="userMenuDropdown">
         <div style="padding:10px 16px;font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);border-bottom:1px solid var(--border);" id="userEmailDisplay"></div>
+        <button class="user-menu-item" onclick="closeUserMenu();window.location.href='/pricing.html'" style="color:var(--green);font-weight:500;">💳 購買點數 / 訂閱</button>
         <button class="user-menu-item" onclick="closeUserMenu()">帳號設定（即將推出）</button>
         <div class="user-menu-sep"></div>
         <button class="user-menu-item danger" onclick="handleSignOut()">登出</button>
@@ -1139,7 +1140,11 @@ function setProgress(text,pct){
 async function startGeneration(){
   if(!currentUser){showToast('請先登入以使用生成功能');openAuth('login');return;}
   const userCredits=currentProfile?.credits??0;const userRole=currentProfile?.role??'';
-  if(userRole!=='admin'&&userCredits<20){showToast('點數不足！請購買方案補充點數');return;}
+  if(userRole!=='admin'&&userCredits<20){
+    showToast('點數不足！即將前往購買頁面…');
+    setTimeout(()=>window.location.href='/pricing.html', 1500);
+    return;
+  }
   if(userRole==='trial_pending'){showToast('您的試用申請審核中，請稍候通知');return;}
   if(userRole==='trial'&&currentProfile?.trial_expires_at){
   if(new Date(currentProfile.trial_expires_at)<new Date()){
