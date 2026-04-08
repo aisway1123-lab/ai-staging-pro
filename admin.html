@@ -192,6 +192,7 @@ td.primary{color:var(--text);}
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser">—</div>
+      <a href="https://line.me/R/ti/p/@536vcequ" target="_blank" style="display:block;text-align:center;margin-bottom:8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted);text-decoration:none;letter-spacing:0.06em;transition:color 0.2s;" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-muted)'">LINE @536vcequ</a>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -383,8 +384,15 @@ function loadAll(){
 
 // ── 統計 ──
 async function loadStats(){
-  const { data: profiles } = await _sb.from('profiles').select('role');
-  const { count: logCount } = await _sb.from('generation_logs').select('*', { count:'exact', head:true });
+  try{
+    const res = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'getStats', adminId: adminUser.id})
+    });
+    const stats = await res.json();
+    const profiles = stats.profiles || [];
+    const logCount = stats.logCount || 0;
   if(profiles){
     document.getElementById('statTotal').textContent   = profiles.length;
     document.getElementById('statPending').textContent = profiles.filter(p => p.role === 'trial_pending').length;
@@ -395,15 +403,21 @@ async function loadStats(){
     else { badge.style.display = 'none'; }
   }
   document.getElementById('statLogs').textContent = logCount ?? 0;
+  }catch(e){ console.error('stats error:', e); }
 }
 
 // ── 總覽：最新試用申請 ──
 async function loadOverviewPending(){
-  const { data } = await _sb.from('profiles')
-    .select('id, email, role, created_at, broker_doc_url')
-    .eq('role', 'trial_pending')
-    .order('created_at', { ascending: false })
-    .limit(5);
+  let data = [];
+  try{
+    const res = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'getPending', adminId: adminUser.id})
+    });
+    const result = await res.json();
+    data = (result.pending || []).slice(0, 5);
+  }catch(e){ data = []; }
   const tbody = document.getElementById('overviewPendingList');
   if(!data || data.length === 0){
     tbody.innerHTML = '<tr><td colspan="4" class="empty-state">目前沒有待審核申請</td></tr>';
@@ -424,11 +438,18 @@ async function loadOverviewPending(){
 // ── 會員清單 ──
 async function loadMembers(){
   document.getElementById('membersList').innerHTML = '<tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr>';
-  const { data } = await _sb.from('profiles')
-    .select('id, email, role, credits, total_used, created_at')
-    .order('created_at', { ascending: false });
-  allMembers = data || [];
-  renderMembers(allMembers);
+  try{
+    const res = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'getMembers', adminId: adminUser.id})
+    });
+    const data = await res.json();
+    allMembers = data.members || [];
+    renderMembers(allMembers);
+  }catch(e){
+    document.getElementById('membersList').innerHTML = '<tr><td colspan="6" class="empty-state">載入失敗：' + e.message + '</td></tr>';
+  }
 }
 
 function renderMembers(list){
@@ -461,10 +482,14 @@ function filterMembers(){
 // ── 試用申請 ──
 async function loadPending(){
   document.getElementById('pendingList').innerHTML = '<tr class="loading-row"><td colspan="4"><span class="spin"></span>載入中…</td></tr>';
-  const { data } = await _sb.from('profiles')
-    .select('id, email, role, created_at, broker_doc_url')
-    .eq('role', 'trial_pending')
-    .order('created_at', { ascending: false });
+  try{
+    const res = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'getPending', adminId: adminUser.id})
+    });
+    const result = await res.json();
+    const data = result.pending || [];
   const tbody = document.getElementById('pendingList');
   if(!data || data.length === 0){
     tbody.innerHTML = '<tr><td colspan="4" class="empty-state">目前沒有待審核申請 🎉</td></tr>';
@@ -510,16 +535,21 @@ async function rejectUser(userId, email){
 // ── 生成紀錄 ──
 async function loadLogs(){
   document.getElementById('logsList').innerHTML = '<tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr>';
-  const { data } = await _sb.from('generation_logs')
-    .select('id, user_id, type, style, room_type, credits_used, created_at, profiles(email)')
-    .order('created_at', { ascending: false })
-    .limit(100);
+  try{
+    const res = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'getLogs', adminId: adminUser.id})
+    });
+    const result = await res.json();
+    const data = result.logs || [];
   const tbody = document.getElementById('logsList');
   if(!data || data.length === 0){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-state">尚無生成紀錄</td></tr>';
     return;
   }
-  tbody.innerHTML = data.map(l => `
+  const tbody2 = document.getElementById('logsList');
+  tbody2.innerHTML = data.map(l => `
     <tr>
       <td class="primary">${l.profiles?.email || l.user_id?.slice(0,8)+'…' || '—'}</td>
       <td><span class="log-type log-${l.type||'image'}">${l.type === 'video' ? '影片' : '圖片'}</span></td>
