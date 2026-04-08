@@ -482,6 +482,7 @@ function filterMembers(){
 // ── 試用申請 ──
 async function loadPending(){
   document.getElementById('pendingList').innerHTML = '<tr class="loading-row"><td colspan="4"><span class="spin"></span>載入中…</td></tr>';
+  let data = [];
   try{
     const res = await fetch('/api/admin-data', {
       method: 'POST',
@@ -489,7 +490,11 @@ async function loadPending(){
       body: JSON.stringify({action: 'getPending', adminId: adminUser.id})
     });
     const result = await res.json();
-    const data = result.pending || [];
+    data = result.pending || [];
+  }catch(e){
+    document.getElementById('pendingList').innerHTML = '<tr><td colspan="4" class="empty-state">載入失敗</td></tr>';
+    return;
+  }
   const tbody = document.getElementById('pendingList');
   if(!data || data.length === 0){
     tbody.innerHTML = '<tr><td colspan="4" class="empty-state">目前沒有待審核申請 🎉</td></tr>';
@@ -535,6 +540,7 @@ async function rejectUser(userId, email){
 // ── 生成紀錄 ──
 async function loadLogs(){
   document.getElementById('logsList').innerHTML = '<tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr>';
+  let data = [];
   try{
     const res = await fetch('/api/admin-data', {
       method: 'POST',
@@ -542,14 +548,17 @@ async function loadLogs(){
       body: JSON.stringify({action: 'getLogs', adminId: adminUser.id})
     });
     const result = await res.json();
-    const data = result.logs || [];
+    data = result.logs || [];
+  }catch(e){
+    document.getElementById('logsList').innerHTML = '<tr><td colspan="6" class="empty-state">載入失敗</td></tr>';
+    return;
+  }
   const tbody = document.getElementById('logsList');
   if(!data || data.length === 0){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-state">尚無生成紀錄</td></tr>';
     return;
   }
-  const tbody2 = document.getElementById('logsList');
-  tbody2.innerHTML = data.map(l => `
+  tbody.innerHTML = data.map(l => `
     <tr>
       <td class="primary">${l.profiles?.email || l.user_id?.slice(0,8)+'…' || '—'}</td>
       <td><span class="log-type log-${l.type||'image'}">${l.type === 'video' ? '影片' : '圖片'}</span></td>
