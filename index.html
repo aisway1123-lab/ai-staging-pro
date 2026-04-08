@@ -853,8 +853,12 @@ let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=n
 let generatedVideoUrl=null,generatedImageUrl=null;
 
 async function initAuth(){
+  // 先隱藏 header right 避免閃爍
+  const btn=document.getElementById('authTriggerBtn');
+  if(btn)btn.style.opacity='0';
   const{data:{session}}=await _sb.auth.getSession();
   if(session?.user)await onLogin(session.user);
+  if(btn)btn.style.opacity='1';
   _sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session?.user){await onLogin(session.user);closeAuth();}
     else if(event==='SIGNED_OUT'){onLogout();}
@@ -891,12 +895,27 @@ function updateHeaderUI(){
 }
 function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').classList.toggle('open');}else{openAuth();}}
 function closeUserMenu(){document.getElementById('userMenu').classList.remove('open');}
-async function handleSignOut(){closeUserMenu();await _sb.auth.signOut();showToast('已登出');}
+async function handleSignOut(){
+  closeUserMenu();
+  const btn=document.getElementById('authTriggerBtn');
+  if(btn){btn.textContent='登出中…';btn.disabled=true;}
+  await _sb.auth.signOut();
+  if(btn){btn.disabled=false;}
+  showToast('已登出');
+}
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
 function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open');clearAuMsg();}
-document.getElementById('authOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('authOverlay'))closeAuth();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAuth();});
+// 移除點擊背景關閉 Modal，防止填寫中途誤觸關閉
+// 用戶只能透過 X 按鈕或 Escape 關閉
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    // 只在沒有輸入框焦點時才關閉 Modal
+    const active=document.activeElement;
+    const isInput=active&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA');
+    if(!isInput)closeAuth();
+  }
+});
 function auTab(tab){
   ['login','register','trial'].forEach(t=>{document.getElementById('auPanel-'+t).style.display='none';document.getElementById('auTab-'+t).classList.remove('active');});
   document.getElementById('auPanel-'+tab).style.display='block';document.getElementById('auTab-'+tab).classList.add('active');
