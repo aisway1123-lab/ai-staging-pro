@@ -501,10 +501,11 @@ input[type="file"] { display: none; }
 ═══════════════════════════════════════════ */
 .disclaimer { max-width: 1120px; margin: 0 auto 48px; padding: 0 48px; }
 .disclaimer p {
-  font-family: var(--font-mono); font-size: 10px;
-  color: var(--ink-subtle); text-align: center;
-  padding: 14px; border: 1px solid var(--border-2);
-  line-height: 1.8; letter-spacing: 0.04em;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--ink-muted); text-align: center;
+  padding: 16px 20px; border: 1px solid var(--border);
+  line-height: 1.9; letter-spacing: 0.04em;
+  background: var(--bg-2);
 }
 
 .toast {
@@ -652,6 +653,13 @@ input[type="file"] { display: none; }
       <button class="auth-trigger-btn" id="authTriggerBtn" onclick="handleAuthBtn()">登入 / 註冊</button>
       <div class="user-menu-dropdown" id="userMenuDropdown">
         <div style="padding:10px 16px;font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);border-bottom:1px solid var(--border);" id="userEmailDisplay"></div>
+        <div style="padding:8px 16px;border-bottom:1px solid var(--border);">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:4px;">我的推薦碼</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span id="referralCodeDisplay" style="font-family:var(--font-mono);font-size:12px;color:var(--green);font-weight:500;letter-spacing:0.12em;">—</span>
+            <button onclick="copyReferralCode()" style="background:none;border:1px solid var(--border);color:var(--ink-muted);font-family:var(--font-mono);font-size:9px;padding:2px 7px;cursor:pointer;letter-spacing:0.06em;">複製</button>
+          </div>
+        </div>
         <button class="user-menu-item" onclick="closeUserMenu();window.location.href='/pricing.html'" style="color:var(--green);font-weight:500;">💳 購買點數 / 訂閱</button>
         <button class="user-menu-item" onclick="closeUserMenu()">帳號設定（即將推出）</button>
         <div class="user-menu-sep"></div>
@@ -763,6 +771,7 @@ input[type="file"] { display: none; }
 
 <div class="disclaimer">
   <p>影像由 AI 生成，僅供行銷參考，實際裝潢效果以現場施工為準。AI Staging Pro 不對生成內容之準確性負法律責任。</p>
+  <p style="margin-top:8px;"><a href="/terms.html" style="color:var(--ink-subtle);font-family:var(--font-mono);font-size:10px;text-decoration:none;border-bottom:1px solid var(--border-2);letter-spacing:0.06em;">服務條款</a>　<a href="/terms.html#privacy" style="color:var(--ink-subtle);font-family:var(--font-mono);font-size:10px;text-decoration:none;border-bottom:1px solid var(--border-2);letter-spacing:0.06em;">隱私政策</a>　<a href="/terms.html#disclaimer" style="color:var(--ink-subtle);font-family:var(--font-mono);font-size:10px;text-decoration:none;border-bottom:1px solid var(--border-2);letter-spacing:0.06em;">免責聲明</a>　<a href="https://line.me/R/ti/p/@536vcequ" target="_blank" style="color:var(--ink-subtle);font-family:var(--font-mono);font-size:10px;text-decoration:none;border-bottom:1px solid var(--border-2);letter-spacing:0.06em;">LINE @536vcequ</a></p>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -839,6 +848,8 @@ input[type="file"] { display: none; }
           <div class="upload-dz-sub">JPG / PNG / PDF｜最大 5MB</div>
         </div>
         <input type="file" id="docFile" accept=".jpg,.jpeg,.png,.pdf" onchange="handleDocFile(this)" style="display:none">
+        <label class="au-label">推薦碼（選填）</label>
+        <input class="au-input" type="text" id="referralCode" placeholder="朋友的推薦碼（選填）" style="text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.9rem;">
         <button class="au-submit" id="trialBtn" onclick="doTrialApply()"><span>提交申請</span></button>
       </div>
     </div>
@@ -853,12 +864,8 @@ let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=n
 let generatedVideoUrl=null,generatedImageUrl=null;
 
 async function initAuth(){
-  // 先隱藏 header right 避免閃爍
-  const btn=document.getElementById('authTriggerBtn');
-  if(btn)btn.style.opacity='0';
   const{data:{session}}=await _sb.auth.getSession();
   if(session?.user)await onLogin(session.user);
-  if(btn)btn.style.opacity='1';
   _sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session?.user){await onLogin(session.user);closeAuth();}
     else if(event==='SIGNED_OUT'){onLogout();}
@@ -883,6 +890,8 @@ function updateHeaderUI(){
     badge.textContent=role==='admin'?'點數：∞':`剩餘 ${credits} 點`;
     badge.className='points-badge'+(credits<5&&role!=='admin'?' low':'');
     if(emailEl)emailEl.textContent=currentUser.email;
+    const refEl=document.getElementById('referralCodeDisplay');
+    if(refEl)refEl.textContent=currentProfile?.referral_code||'—';
     const libBtn=document.getElementById('libraryBtn');
     if(libBtn)libBtn.style.display='inline-block';
   }else{
@@ -895,27 +904,12 @@ function updateHeaderUI(){
 }
 function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').classList.toggle('open');}else{openAuth();}}
 function closeUserMenu(){document.getElementById('userMenu').classList.remove('open');}
-async function handleSignOut(){
-  closeUserMenu();
-  const btn=document.getElementById('authTriggerBtn');
-  if(btn){btn.textContent='登出中…';btn.disabled=true;}
-  await _sb.auth.signOut();
-  if(btn){btn.disabled=false;}
-  showToast('已登出');
-}
+async function handleSignOut(){closeUserMenu();await _sb.auth.signOut();showToast('已登出');}
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
 function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open');clearAuMsg();}
-// 移除點擊背景關閉 Modal，防止填寫中途誤觸關閉
-// 用戶只能透過 X 按鈕或 Escape 關閉
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){
-    // 只在沒有輸入框焦點時才關閉 Modal
-    const active=document.activeElement;
-    const isInput=active&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA');
-    if(!isInput)closeAuth();
-  }
-});
+document.getElementById('authOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('authOverlay'))closeAuth();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAuth();});
 function auTab(tab){
   ['login','register','trial'].forEach(t=>{document.getElementById('auPanel-'+t).style.display='none';document.getElementById('auTab-'+t).classList.remove('active');});
   document.getElementById('auPanel-'+tab).style.display='block';document.getElementById('auTab-'+tab).classList.add('active');
@@ -1226,6 +1220,17 @@ async function downloadFile(url,filename){
 function downloadImage(){if(!generatedImageUrl){showToast('效果圖尚未生成');return;}downloadFile(generatedImageUrl,'ai-staging-effect.png');}
 function downloadVideo(){if(!generatedVideoUrl){showToast('尚無影片可下載');return;}downloadFile(generatedVideoUrl,`ai-staging-${selectedStyle}-${selectedRoom}-${Date.now()}.mp4`);}
 function resetAll(){document.getElementById('resultSection').style.display='none';document.getElementById('progressWrap').classList.remove('visible');document.getElementById('errorBox').classList.remove('visible');document.getElementById('genBtn').disabled=false;generatedVideoUrl=null;generatedImageUrl=null;}
+function copyReferralCode(){
+  const code=currentProfile?.referral_code;
+  if(!code){showToast('推薦碼載入中，請稍候');return;}
+  navigator.clipboard.writeText(code).then(()=>showToast('✓ 推薦碼已複製：'+code)).catch(()=>{
+    const el=document.createElement('textarea');
+    el.value=code;document.body.appendChild(el);el.select();
+    document.execCommand('copy');document.body.removeChild(el);
+    showToast('✓ 推薦碼已複製：'+code);
+  });
+  closeUserMenu();
+}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
 initAuth();
 </script>
