@@ -57,24 +57,30 @@ export default async function handler(req, res) {
 
     if (updateErr) return res.status(500).json({ error: '申請提交失敗：' + updateErr.message });
 
-    // ── LINE Messaging API 推播通知（背景執行，不影響回應）──
+    // ── LINE Messaging API 推播通知 ──
     const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     const LINE_UID   = process.env.LINE_USER_ID;
     if (LINE_TOKEN && LINE_UID) {
-      fetch('https://api.line.me/v2/bot/message/push', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LINE_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          to: LINE_UID,
-          messages: [{
-            type: 'text',
-            text: `【AI Staging Pro】新試用申請\n申請者：${userEmail}\n請前往後台審核：\nhttps://ai-staging-pro-puce.vercel.app/admin.html`
-          }]
-        })
-      }).catch(e => console.warn('LINE 通知失敗:', e));
+      try {
+        const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LINE_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            to: LINE_UID,
+            messages: [{
+              type: 'text',
+              text: `【AI Staging Pro】新試用申請\n申請者：${userEmail}\n請前往後台審核：\nhttps://ai-staging-pro-puce.vercel.app/admin.html`
+            }]
+          })
+        });
+        const lineData = await lineRes.json();
+        console.log('LINE push result:', JSON.stringify(lineData));
+      } catch (e) {
+        console.warn('LINE 通知失敗:', e);
+      }
     }
 
     return res.status(200).json({ success: true });
