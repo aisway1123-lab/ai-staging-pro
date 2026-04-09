@@ -1,80 +1,611 @@
-// api/trial-apply.js
-// 兩個功能：
-// 1. GET-like POST with action='getUploadUrl' → 產生預簽名上傳 URL
-// 2. POST with action='confirm' → 確認上傳完成，更新 role
-
-import { createClient } from '@supabase/supabase-js';
-
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
-  const { action, userId, docExt, docPath, referralCode } = req.body;
-
-  // ── 步驟一：產生預簽名上傳 URL ──
-  if (action === 'getUploadUrl') {
-    if (!userId || !docExt) return res.status(400).json({ error: '缺少參數' });
-
-    const path = `${userId}/broker-cert-${Date.now()}.${docExt}`;
-    const { data, error } = await supabase.storage
-      .from('broker-docs')
-      .createSignedUploadUrl(path);
-
-    if (error) return res.status(500).json({ error: '無法產生上傳 URL：' + error.message });
-
-    return res.status(200).json({
-      success: true,
-      signedUrl: data.signedUrl,
-      path: path
-    });
-  }
-
-  // ── 步驟二：上傳完成，更新 profile ──
-  if (action === 'confirm') {
-    if (!userId || !docPath) return res.status(400).json({ error: '缺少參數' });
-
-    // 取得申請者 email
-    const { data: userData } = await supabase.auth.admin.getUserById(userId);
-    const userEmail = userData?.user?.email || '未知';
-
-    const { error: updateErr } = await supabase
-      .from('profiles')
-      .update({
-        broker_doc_url: docPath,
-        role:           'trial_pending',
-        referred_by:    referralCode || null,
-        updated_at:     new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (updateErr) return res.status(500).json({ error: '申請提交失敗：' + updateErr.message });
-
-    // ── LINE Notify 通知（背景執行，不影響回應）──
-    const LINE_NOTIFY_TOKEN = process.env.LINE_NOTIFY_TOKEN;
-    if (LINE_NOTIFY_TOKEN) {
-      fetch('https://notify-api.line.me/api/notify', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LINE_NOTIFY_TOKEN}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: `message=${encodeURIComponent(`
-【AI Staging Pro】新試用申請
-申請者：${userEmail}
-請前往後台審核：https://ai-staging-pro-puce.vercel.app/admin.html`)}`
-      }).catch(e => console.warn('LINE 通知失敗:', e));
-    }
-
-    return res.status(200).json({ success: true });
-  }
-
-  return res.status(400).json({ error: '無效的 action' });
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Staging Pro｜後台管理</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700&family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  window.SUPABASE_URL      = "https://jyvojuswdruexgxsxarl.supabase.co";
+  window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5dm9qdXN3ZHJ1ZXhneHN4YXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTM2ODAsImV4cCI6MjA5MDE2OTY4MH0.6FL0eBQmXV9_vziTVyTqjiKB1UL32Jaw1ypel41jm1E";
+</script>
+<style>
+:root{
+  --gold:#C9A84C;--gold-light:#E8D08A;--gold-dim:rgba(201,168,76,0.1);
+  --dark:#0A0A0A;--dark-2:#111111;--dark-3:#1A1A1A;--dark-4:#242424;
+  --text:#E8E4DC;--text-muted:#7A7670;--text-subtle:#3a3630;
+  --border:rgba(201,168,76,0.18);--border-hover:rgba(201,168,76,0.4);
+  --danger:#c46b6b;--success:#6bc48a;--warning:#c4a46b;
+  --manager:#7b9cc4;
 }
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--dark);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;}
+
+/* ── Auth Gate ── */
+#authGate{position:fixed;inset:0;background:var(--dark);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:1.5rem;}
+.gate-logo{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--gold);letter-spacing:3px;}
+.gate-sub{font-size:0.7rem;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;}
+.gate-form{background:var(--dark-2);border:1px solid var(--border);padding:2rem;width:100%;max-width:360px;position:relative;}
+.gate-form::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.gate-label{font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.4rem;display:block;}
+.gate-input{width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.85rem;padding:0.7rem 0.9rem;outline:none;margin-bottom:1rem;transition:border-color 0.2s;}
+.gate-input:focus{border-color:var(--gold);}
+.gate-btn{width:100%;padding:0.85rem;background:transparent;border:1px solid var(--gold);color:var(--gold);font-family:'DM Mono',monospace;font-size:0.75rem;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;}
+.gate-btn::before{content:'';position:absolute;inset:0;background:var(--gold);transform:translateX(-101%);transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);}
+.gate-btn:hover::before{transform:translateX(0);}
+.gate-btn:hover{color:#0A0A0A;}
+.gate-btn span{position:relative;z-index:1;}
+.gate-msg{font-size:0.72rem;color:var(--danger);margin-top:0.8rem;text-align:center;min-height:1rem;}
+
+/* ── Layout ── */
+#app{display:none;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:220px;background:var(--dark-2);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.sidebar-logo{padding:1.8rem 1.5rem 1.4rem;border-bottom:1px solid var(--border);}
+.sidebar-logo-text{font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold);letter-spacing:2px;}
+.sidebar-logo-sub{font-size:0.58rem;letter-spacing:0.3em;color:var(--text-muted);text-transform:uppercase;margin-top:0.2rem;}
+.role-badge{display:inline-block;font-size:0.58rem;letter-spacing:0.15em;color:var(--dark);padding:2px 7px;margin-top:0.5rem;}
+.role-badge.admin{background:var(--gold);}
+.role-badge.manager{background:var(--manager);}
+.nav{flex:1;padding:1rem 0;}
+.nav-item{display:flex;align-items:center;gap:0.7rem;padding:0.75rem 1.5rem;font-size:0.72rem;letter-spacing:0.08em;color:var(--text-muted);cursor:pointer;transition:all 0.2s;border-left:2px solid transparent;}
+.nav-item:hover{color:var(--text);background:var(--gold-dim);}
+.nav-item.active{color:var(--gold);border-left-color:var(--gold);background:var(--gold-dim);}
+.nav-item.hidden{display:none;}
+.nav-item .nav-icon{font-size:0.9rem;width:1.2rem;text-align:center;}
+.sidebar-footer{padding:1.2rem 1.5rem;border-top:1px solid var(--border);}
+.sidebar-user{font-size:0.68rem;color:var(--text-muted);margin-bottom:0.6rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.logout-btn{width:100%;padding:0.55rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:'DM Mono',monospace;font-size:0.68rem;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;}
+.logout-btn:hover{border-color:var(--danger);color:var(--danger);}
+.main{margin-left:220px;padding:2rem 2.5rem;min-height:100vh;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── Page Header ── */
+.page-header{margin-bottom:2rem;padding-bottom:1.2rem;border-bottom:1px solid var(--border);}
+.page-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;color:var(--text);margin-bottom:0.3rem;}
+.page-sub{font-size:0.7rem;color:var(--text-muted);letter-spacing:0.06em;}
+
+/* ── Stats Row ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:2rem;}
+.stat-card{background:var(--dark-2);padding:1.4rem 1.6rem;}
+.stat-label{font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem;}
+.stat-val{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--gold);line-height:1;}
+.stat-sub{font-size:0.62rem;color:var(--text-subtle);margin-top:0.3rem;}
+
+/* ── Table ── */
+.table-wrap{background:var(--dark-2);border:1px solid var(--border);overflow:hidden;}
+.table-toolbar{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.4rem;border-bottom:1px solid var(--border);}
+.table-title{font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);}
+.table-actions{display:flex;gap:0.6rem;align-items:center;}
+.search-input{background:var(--dark-3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.75rem;padding:0.45rem 0.8rem;outline:none;width:200px;transition:border-color 0.2s;}
+.search-input:focus{border-color:var(--gold);}
+.search-input::placeholder{color:var(--text-subtle);}
+table{width:100%;border-collapse:collapse;}
+thead tr{border-bottom:1px solid var(--border);}
+th{padding:0.75rem 1rem;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);text-align:left;font-weight:400;}
+tbody tr{border-bottom:1px solid rgba(201,168,76,0.06);transition:background 0.15s;}
+tbody tr:hover{background:var(--gold-dim);}
+tbody tr:last-child{border-bottom:none;}
+td{padding:0.85rem 1rem;font-size:0.75rem;color:var(--text-muted);vertical-align:middle;}
+td.primary{color:var(--text);}
+
+/* ── Role Badge ── */
+.role-tag{display:inline-block;padding:2px 8px;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;}
+.role-admin{background:rgba(201,168,76,0.15);color:var(--gold);border:1px solid rgba(201,168,76,0.3);}
+.role-manager{background:rgba(123,156,196,0.15);color:var(--manager);border:1px solid rgba(123,156,196,0.3);}
+.role-trial{background:rgba(107,196,138,0.1);color:var(--success);border:1px solid rgba(107,196,138,0.25);}
+.role-trial_pending{background:rgba(196,164,107,0.1);color:var(--warning);border:1px solid rgba(196,164,107,0.25);}
+.role-subscriber{background:rgba(107,150,196,0.1);color:#6b96c4;border:1px solid rgba(107,150,196,0.25);}
+.role-free{background:var(--dark-4);color:var(--text-subtle);border:1px solid var(--border);}
+
+/* ── Buttons ── */
+.btn{padding:0.35rem 0.8rem;font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;border:1px solid;}
+.btn-approve{background:rgba(107,196,138,0.08);border-color:rgba(107,196,138,0.3);color:var(--success);}
+.btn-approve:hover{background:rgba(107,196,138,0.18);}
+.btn-credits{background:var(--gold-dim);border-color:rgba(201,168,76,0.3);color:var(--gold);}
+.btn-credits:hover{background:rgba(201,168,76,0.18);}
+.btn-danger{background:rgba(196,107,107,0.08);border-color:rgba(196,107,107,0.3);color:var(--danger);}
+.btn-danger:hover{background:rgba(196,107,107,0.18);}
+.btn-sm{padding:0.28rem 0.6rem;font-size:0.6rem;}
+.btn-row{display:flex;gap:0.4rem;flex-wrap:wrap;}
+
+/* ── Credits Input ── */
+.credits-input{width:70px;background:var(--dark-3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.72rem;padding:0.3rem 0.5rem;outline:none;text-align:center;}
+.credits-input:focus{border-color:var(--gold);}
+
+/* ── Manager 無權限提示 ── */
+.no-permission{padding:2rem;text-align:center;color:var(--text-muted);}
+.no-permission-icon{font-size:2rem;margin-bottom:0.8rem;opacity:0.5;}
+.no-permission-text{font-size:0.78rem;line-height:1.8;}
+
+/* ── Empty / Loading ── */
+.empty-state{padding:3rem;text-align:center;color:var(--text-subtle);font-size:0.75rem;}
+.loading-row td{text-align:center;padding:2rem;color:var(--text-muted);}
+.spin{display:inline-block;width:14px;height:14px;border:1.5px solid rgba(201,168,76,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:0.4rem;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--dark-3);border:1px solid var(--gold);color:var(--gold-light);padding:10px 20px;font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:0.1em;opacity:0;transition:all 0.3s;pointer-events:none;z-index:9998;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:9000;padding:1rem;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--dark-2);border:1px solid var(--border);width:100%;max-width:380px;position:relative;}
+.modal::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.modal-header{padding:1.4rem 1.6rem;border-bottom:1px solid var(--border);}
+.modal-title{font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);}
+.modal-body{padding:1.4rem 1.6rem;}
+.modal-label{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.4rem;display:block;}
+.modal-input{width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.85rem;padding:0.7rem 0.9rem;outline:none;margin-bottom:1rem;transition:border-color 0.2s;}
+.modal-input:focus{border-color:var(--gold);}
+.modal-footer{padding:1rem 1.6rem;border-top:1px solid var(--border);display:flex;gap:0.6rem;justify-content:flex-end;}
+.modal-close{position:absolute;top:0.9rem;right:1rem;background:none;border:none;color:var(--text-muted);font-size:0.9rem;cursor:pointer;}
+.doc-link{color:var(--gold);font-size:0.68rem;cursor:pointer;border-bottom:1px dashed rgba(201,168,76,0.3);}
+.doc-link:hover{border-bottom-style:solid;}
+.log-type{display:inline-block;padding:1px 6px;font-size:0.58rem;letter-spacing:0.08em;}
+.log-image{background:rgba(107,150,196,0.1);color:#6b96c4;border:1px solid rgba(107,150,196,0.2);}
+.log-video{background:rgba(196,107,196,0.1);color:#c46bc4;border:1px solid rgba(196,107,196,0.2);}
+
+@media(max-width:900px){.sidebar{width:60px;}.sidebar-logo-text,.sidebar-logo-sub,.role-badge,.nav-item span,.sidebar-user{display:none;}.nav-item{padding:0.75rem;justify-content:center;}.main{margin-left:60px;padding:1.5rem;}.stats-row{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div id="authGate">
+  <div class="gate-logo">AI Staging Pro</div>
+  <div class="gate-sub">後台管理系統</div>
+  <div class="gate-form">
+    <label class="gate-label">電子郵件</label>
+    <input class="gate-input" type="email" id="gateEmail" placeholder="admin@email.com" autocomplete="email">
+    <label class="gate-label">密碼</label>
+    <input class="gate-input" type="password" id="gatePassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doGateLogin()">
+    <button class="gate-btn" onclick="doGateLogin()"><span>進入後台</span></button>
+    <div class="gate-msg" id="gateMsg"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-text">ASP</div>
+      <div class="sidebar-logo-sub">管理後台</div>
+      <div class="role-badge" id="roleBadge">ADMIN</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" id="nav-overview" onclick="showPage('overview')">
+        <span class="nav-icon">◈</span><span>總覽</span>
+      </div>
+      <div class="nav-item" id="nav-members" onclick="showPage('members')">
+        <span class="nav-icon">◉</span><span>會員管理</span>
+      </div>
+      <div class="nav-item" id="nav-pending" onclick="showPage('pending')">
+        <span class="nav-icon">◎</span><span>試用申請</span>
+        <span id="pendingBadge" style="display:none;margin-left:auto;background:var(--warning);color:#0A0A0A;font-size:0.58rem;padding:1px 5px;"></span>
+      </div>
+      <div class="nav-item" id="nav-logs" onclick="showPage('logs')">
+        <span class="nav-icon">◷</span><span>生成紀錄</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebarUser">—</div>
+      <button class="logout-btn" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- 總覽 -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <div class="page-title">總覽</div>
+        <div class="page-sub">AI Staging Pro 後台管理系統</div>
+      </div>
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card"><div class="stat-label">總會員數</div><div class="stat-val" id="statTotal">—</div><div class="stat-sub">所有註冊用戶</div></div>
+        <div class="stat-card"><div class="stat-label">待審核申請</div><div class="stat-val" id="statPending" style="color:var(--warning)">—</div><div class="stat-sub">trial_pending</div></div>
+        <div class="stat-card"><div class="stat-label">試用中用戶</div><div class="stat-val" id="statTrial" style="color:var(--success)">—</div><div class="stat-sub">trial</div></div>
+        <div class="stat-card"><div class="stat-label">總生成次數</div><div class="stat-val" id="statLogs">—</div><div class="stat-sub">累計生成紀錄</div></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="table-title">最新試用申請</div>
+          <div><button class="btn btn-credits" onclick="showPage('pending')">查看全部</button></div>
+        </div>
+        <table>
+          <thead><tr><th>Email</th><th>申請時間</th><th>狀態</th><th>操作</th></tr></thead>
+          <tbody id="overviewPendingList"><tr class="loading-row"><td colspan="4"><span class="spin"></span>載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 會員管理 -->
+    <div class="page" id="page-members">
+      <div class="page-header">
+        <div class="page-title">會員管理</div>
+        <div class="page-sub">查看所有用戶帳號</div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="table-title">所有會員</div>
+          <div class="table-actions">
+            <input class="search-input" type="text" id="memberSearch" placeholder="搜尋 Email…" oninput="filterMembers()">
+            <button class="btn btn-credits" onclick="loadMembers()">重新整理</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Email</th><th>角色</th><th>點數</th><th>總消耗</th><th>建立時間</th><th id="memberActionHeader">操作</th></tr></thead>
+          <tbody id="membersList"><tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 試用申請 -->
+    <div class="page" id="page-pending">
+      <div class="page-header">
+        <div class="page-title">試用申請審核</div>
+        <div class="page-sub">審核不動產及室內設計從業者的免費試用申請</div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="table-title">待審核申請</div>
+          <div><button class="btn btn-credits" onclick="loadPending()">重新整理</button></div>
+        </div>
+        <table>
+          <thead><tr><th>Email</th><th>申請時間</th><th>證明文件</th><th>操作</th></tr></thead>
+          <tbody id="pendingList"><tr class="loading-row"><td colspan="4"><span class="spin"></span>載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 生成紀錄 -->
+    <div class="page" id="page-logs">
+      <div class="page-header">
+        <div class="page-title">生成紀錄</div>
+        <div class="page-sub">所有用戶的生成歷史</div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="table-title">生成紀錄</div>
+          <div><button class="btn btn-credits" onclick="loadLogs()">重新整理</button></div>
+        </div>
+        <table>
+          <thead><tr><th>用戶</th><th>類型</th><th>風格</th><th>空間</th><th>消耗點數</th><th>時間</th></tr></thead>
+          <tbody id="logsList"><tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Credits Modal（僅 admin 可用）-->
+<div class="modal-overlay" id="creditsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('creditsModal')">✕</button>
+    <div class="modal-header"><div class="modal-title">調整點數</div></div>
+    <div class="modal-body">
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:1rem;" id="creditsModalUser"></div>
+      <label class="modal-label">目前點數</label>
+      <input class="modal-input" type="number" id="creditsModalCurrent" readonly style="opacity:0.5">
+      <label class="modal-label">設定為</label>
+      <input class="modal-input" type="number" id="creditsModalNew" placeholder="輸入新的點數" min="0">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+        <button class="btn btn-credits btn-sm" onclick="quickAdd(10)">+10</button>
+        <button class="btn btn-credits btn-sm" onclick="quickAdd(20)">+20</button>
+        <button class="btn btn-credits btn-sm" onclick="quickAdd(50)">+50</button>
+        <button class="btn btn-credits btn-sm" onclick="quickAdd(100)">+100</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" style="border-color:var(--border);color:var(--text-muted);" onclick="closeModal('creditsModal')">取消</button>
+      <button class="btn btn-credits" onclick="saveCredits()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+let adminUser = null;
+let adminRole = null; // 'admin' | 'manager'
+let allMembers = [];
+let editingUserId = null;
+
+// ── 登入 ──
+async function doGateLogin(){
+  const email    = document.getElementById('gateEmail').value.trim();
+  const password = document.getElementById('gatePassword').value;
+  const msgEl    = document.getElementById('gateMsg');
+  msgEl.textContent = '';
+  if(!email || !password){ msgEl.textContent = '請填寫帳號與密碼'; return; }
+  const btn = document.querySelector('.gate-btn span');
+  btn.innerHTML = '<span class="spin"></span>驗證中…';
+  try {
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+    if(error) throw error;
+    const { data: profile } = await _sb.from('profiles').select('role').eq('id', data.user.id).single();
+    if(profile?.role !== 'admin' && profile?.role !== 'manager'){
+      await _sb.auth.signOut();
+      throw new Error('此帳號沒有管理員或管理者權限');
+    }
+    adminUser = data.user;
+    adminRole = profile.role;
+    // 設定角色徽章
+    const badge = document.getElementById('roleBadge');
+    badge.textContent = adminRole === 'admin' ? 'ADMIN' : 'MANAGER';
+    badge.className = 'role-badge ' + adminRole;
+    document.getElementById('sidebarUser').textContent = email;
+    // Manager 隱藏不需要的功能
+    applyRoleRestrictions();
+    document.getElementById('authGate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadAll();
+  } catch(e){
+    msgEl.textContent = e.message || '登入失敗';
+  } finally {
+    btn.textContent = '進入後台';
+  }
+}
+
+function applyRoleRestrictions(){
+  if(adminRole === 'manager'){
+    // Manager 的會員頁不顯示「操作」欄標題（調整點數/改角色）
+    const header = document.getElementById('memberActionHeader');
+    if(header) header.style.display = 'none';
+  }
+}
+
+async function doLogout(){
+  await _sb.auth.signOut();
+  location.reload();
+}
+
+// ── 導覽 ──
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if(name === 'members') loadMembers();
+  if(name === 'pending') loadPending();
+  if(name === 'logs')    loadLogs();
+}
+
+function loadAll(){
+  loadStats();
+  loadOverviewPending();
+}
+
+// ── 統計 ──
+async function loadStats(){
+  const { data: profiles } = await _sb.from('profiles').select('role');
+  const { count: logCount } = await _sb.from('generation_logs').select('*', { count:'exact', head:true });
+  if(profiles){
+    document.getElementById('statTotal').textContent   = profiles.length;
+    document.getElementById('statPending').textContent = profiles.filter(p => p.role === 'trial_pending').length;
+    document.getElementById('statTrial').textContent   = profiles.filter(p => p.role === 'trial').length;
+    const pendingCount = profiles.filter(p => p.role === 'trial_pending').length;
+    const badge = document.getElementById('pendingBadge');
+    if(pendingCount > 0){ badge.textContent = pendingCount; badge.style.display = 'inline'; }
+    else { badge.style.display = 'none'; }
+  }
+  document.getElementById('statLogs').textContent = logCount ?? 0;
+}
+
+// ── 總覽：最新試用申請 ──
+async function loadOverviewPending(){
+  const { data } = await _sb.from('profiles')
+    .select('id, email, role, created_at, broker_doc_url')
+    .eq('role', 'trial_pending')
+    .order('created_at', { ascending: false })
+    .limit(5);
+  const tbody = document.getElementById('overviewPendingList');
+  if(!data || data.length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">目前沒有待審核申請</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td class="primary">${u.email || '—'}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td>${roleBadge(u.role)}</td>
+      <td><div class="btn-row">
+        <button class="btn btn-approve btn-sm" onclick="approveUser('${u.id}','${u.email}')">✓ 核准</button>
+        <button class="btn btn-danger btn-sm" onclick="rejectUser('${u.id}','${u.email}')">✕ 拒絕</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── 會員清單 ──
+async function loadMembers(){
+  document.getElementById('membersList').innerHTML = '<tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr>';
+  const { data } = await _sb.from('profiles')
+    .select('id, email, role, credits, total_used, created_at')
+    .order('created_at', { ascending: false });
+  allMembers = data || [];
+  renderMembers(allMembers);
+}
+
+function renderMembers(list){
+  const tbody = document.getElementById('membersList');
+  if(!list || list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">目前沒有會員</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(u => `
+    <tr>
+      <td class="primary">${u.email || '—'}</td>
+      <td>${roleBadge(u.role)}</td>
+      <td><strong style="color:var(--gold)">${u.credits ?? 0}</strong></td>
+      <td>${u.total_used ?? 0}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td>${adminRole === 'admin' ? `
+        <div class="btn-row">
+          <button class="btn btn-credits btn-sm" onclick="openCreditsModal('${u.id}','${u.email}',${u.credits??0})">調整點數</button>
+          ${u.role !== 'admin' ? `<button class="btn btn-sm" style="border-color:var(--border);color:var(--text-muted);" onclick="changeRole('${u.id}','${u.email}','${u.role}')">改角色</button>` : ''}
+        </div>` : '<span style="color:var(--text-subtle);font-size:0.68rem;">—</span>'}
+      </td>
+    </tr>`).join('');
+}
+
+function filterMembers(){
+  const q = document.getElementById('memberSearch').value.toLowerCase();
+  renderMembers(allMembers.filter(u => (u.email||'').toLowerCase().includes(q)));
+}
+
+// ── 試用申請 ──
+async function loadPending(){
+  document.getElementById('pendingList').innerHTML = '<tr class="loading-row"><td colspan="4"><span class="spin"></span>載入中…</td></tr>';
+  const { data } = await _sb.from('profiles')
+    .select('id, email, role, created_at, broker_doc_url')
+    .eq('role', 'trial_pending')
+    .order('created_at', { ascending: false });
+  const tbody = document.getElementById('pendingList');
+  if(!data || data.length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">目前沒有待審核申請 🎉</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td class="primary">${u.email || '—'}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td>${u.broker_doc_url
+        ? `<a class="doc-link" onclick="viewDoc('${u.broker_doc_url}')">查看文件 ↗</a>`
+        : '<span style="color:var(--text-subtle)">未上傳</span>'}</td>
+      <td><div class="btn-row">
+        <button class="btn btn-approve" onclick="approveUser('${u.id}','${u.email}')">✓ 核准（給 60 點）</button>
+        <button class="btn btn-danger" onclick="rejectUser('${u.id}','${u.email}')">✕ 拒絕</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── 核准 / 拒絕 ──
+async function approveUser(userId, email){
+  if(!confirm(`核准 ${email} 的試用申請並給予 60 點？`)) return;
+  const { error } = await _sb.from('profiles')
+    .update({
+      role: 'trial',
+      credits: 60,
+      trial_expires_at: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId);
+  if(error){ showToast('操作失敗：' + error.message); return; }
+  // 自動寄送審核通過通知信
+  try {
+    await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'trial_approved', to: email })
+    });
+    showToast(`✓ 已核准 ${email}，給予 60 點，通知信已寄出`);
+  } catch(e) {
+    showToast(`✓ 已核准 ${email}，給予 60 點（通知信發送失敗）`);
+  }
+  loadStats(); loadOverviewPending(); loadPending();
+}
+
+async function rejectUser(userId, email){
+  if(!confirm(`確定拒絕 ${email} 的申請？`)) return;
+  await _sb.from('profiles').update({ role: 'free' }).eq('id', userId);
+  showToast(`已拒絕 ${email}`);
+  loadStats(); loadOverviewPending(); loadPending();
+}
+
+// ── 生成紀錄 ──
+async function loadLogs(){
+  document.getElementById('logsList').innerHTML = '<tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr>';
+  const { data } = await _sb.from('generation_logs')
+    .select('id, user_id, type, style, room_type, credits_used, created_at, profiles(email)')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  const tbody = document.getElementById('logsList');
+  if(!data || data.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">尚無生成紀錄</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(l => `
+    <tr>
+      <td class="primary">${l.profiles?.email || l.user_id?.slice(0,8)+'…' || '—'}</td>
+      <td><span class="log-type log-${l.type||'image'}">${l.type === 'video' ? '影片' : '圖片'}</span></td>
+      <td style="font-size:0.68rem">${l.style || '—'}</td>
+      <td style="font-size:0.68rem">${l.room_type || '—'}</td>
+      <td style="color:var(--gold)">${l.credits_used ?? 0}</td>
+      <td>${fmtDate(l.created_at)}</td>
+    </tr>`).join('');
+}
+
+// ── 調整點數（僅 admin）──
+function openCreditsModal(userId, email, currentCredits){
+  if(adminRole !== 'admin'){ showToast('您沒有此功能的權限'); return; }
+  editingUserId = userId;
+  document.getElementById('creditsModalUser').textContent = email;
+  document.getElementById('creditsModalCurrent').value   = currentCredits;
+  document.getElementById('creditsModalNew').value       = currentCredits;
+  document.getElementById('creditsModal').classList.add('open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function quickAdd(n){
+  const cur = parseInt(document.getElementById('creditsModalCurrent').value) || 0;
+  document.getElementById('creditsModalNew').value = cur + n;
+}
+async function saveCredits(){
+  const newVal = parseInt(document.getElementById('creditsModalNew').value);
+  if(isNaN(newVal) || newVal < 0){ showToast('請輸入有效的點數'); return; }
+  const { error } = await _sb.from('profiles')
+    .update({ credits: newVal, updated_at: new Date().toISOString() })
+    .eq('id', editingUserId);
+  if(error){ showToast('更新失敗：' + error.message); return; }
+  showToast(`✓ 點數已更新為 ${newVal}`);
+  closeModal('creditsModal');
+  loadMembers(); loadStats();
+}
+
+// ── 改角色（僅 admin）──
+async function changeRole(userId, email, currentRole){
+  if(adminRole !== 'admin'){ showToast('您沒有此功能的權限'); return; }
+  const roles = ['free','trial','subscriber','manager','admin'];
+  const next = prompt(`${email} 目前角色：${currentRole}\n\n輸入新角色：free / trial / subscriber / manager / admin`, currentRole);
+  if(!next || !roles.includes(next)) return;
+  const { error } = await _sb.from('profiles')
+    .update({ role: next, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if(error){ showToast('更新失敗：' + error.message); return; }
+  showToast(`✓ ${email} 角色已改為 ${next}`);
+  loadMembers();
+}
+
+// ── 查看文件 ──
+async function viewDoc(path){
+  const { data } = await _sb.storage.from('broker-docs').createSignedUrl(path, 60);
+  if(data?.signedUrl) window.open(data.signedUrl, '_blank');
+  else showToast('無法取得文件連結');
+}
+
+// ── 工具函式 ──
+function roleBadge(role){
+  return `<span class="role-tag role-${role||'free'}">${role||'free'}</span>`;
+}
+function fmtDate(str){
+  if(!str) return '—';
+  const d = new Date(str);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.getElementById('creditsModal').addEventListener('click', function(e){
+  if(e.target === this) closeModal('creditsModal');
+});
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal('creditsModal'); });
+</script>
+</body>
+</html>
