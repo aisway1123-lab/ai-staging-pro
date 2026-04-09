@@ -909,7 +909,16 @@ function updateHeaderUI(){
 }
 function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').classList.toggle('open');}else{openAuth();}}
 function closeUserMenu(){document.getElementById('userMenu').classList.remove('open');}
-async function handleSignOut(){closeUserMenu();await _sb.auth.signOut();showToast('已登出');}
+async function handleSignOut(){
+  closeUserMenu();
+  const btn=document.getElementById('authTriggerBtn');
+  if(btn){btn.textContent='登出中…';btn.disabled=true;}
+  // 加 timeout 強制登出，不等 API 回應
+  const timeout = new Promise(r=>setTimeout(r,3000));
+  await Promise.race([_sb.auth.signOut(), timeout]);
+  onLogout();
+  showToast('已登出');
+}
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
 function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open');clearAuMsg();}
