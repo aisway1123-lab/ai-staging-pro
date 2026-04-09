@@ -192,7 +192,6 @@ td.primary{color:var(--text);}
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser">—</div>
-      <a href="https://line.me/R/ti/p/@536vcequ" target="_blank" style="display:block;text-align:center;margin-bottom:8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted);text-decoration:none;letter-spacing:0.06em;transition:color 0.2s;" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-muted)'">LINE @536vcequ</a>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -234,6 +233,7 @@ td.primary{color:var(--text);}
           <div class="table-title">所有會員</div>
           <div class="table-actions">
             <input class="search-input" type="text" id="memberSearch" placeholder="搜尋 Email…" oninput="filterMembers()">
+            <button class="btn btn-credits" onclick="exportMembers()">匯出 CSV</button>
             <button class="btn btn-credits" onclick="loadMembers()">重新整理</button>
           </div>
         </div>
@@ -479,6 +479,48 @@ function renderMembers(list){
 function filterMembers(){
   const q = document.getElementById('memberSearch').value.toLowerCase();
   renderMembers(allMembers.filter(u => (u.email||'').toLowerCase().includes(q)));
+}
+
+function exportMembers(){
+  if(!allMembers || allMembers.length === 0){ showToast('沒有會員資料可匯出'); return; }
+
+  const now = new Date();
+  const rows = [
+    // 標題列
+    ['Email','角色','點數','總消耗','是否試用申請','試用到期日','推薦碼','推薦來源','建立時間']
+  ];
+
+  allMembers.forEach(u => {
+    const isTrial = ['trial_pending','trial'].includes(u.role) ||
+                    (u.role === 'subscriber' && u.trial_expires_at); // 曾經試用後轉付費
+    const trialExpired = u.trial_expires_at
+      ? (new Date(u.trial_expires_at) < now ? '已到期' : fmtDate(u.trial_expires_at))
+      : '—';
+
+    rows.push([
+      u.email || '',
+      u.role || '',
+      u.credits ?? 0,
+      u.total_used ?? 0,
+      isTrial ? '是' : '否',
+      trialExpired,
+      u.referral_code || '—',
+      u.referred_by || '—',
+      u.created_at ? new Date(u.created_at).toLocaleDateString('zh-TW') : ''
+    ]);
+  });
+
+  // 加 BOM 讓 Excel 正確顯示中文
+  const bom = '\uFEFF';
+  const csv = bom + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ASP_members_${now.toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✓ 已匯出 ${allMembers.length} 筆會員資料`);
 }
 
 // ── 試用申請 ──
