@@ -1,7 +1,7 @@
 // api/trial-apply.js
 // 兩個功能：
-// 1. GET-like POST with action='getUploadUrl' → 產生預簽名上傳 URL
-// 2. POST with action='confirm' → 確認上傳完成，更新 role
+// 1. POST with action='getUploadUrl' → 產生預簽名上傳 URL
+// 2. POST with action='confirm' → 確認上傳完成，更新 role + 發 LINE 通知
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -57,19 +57,23 @@ export default async function handler(req, res) {
 
     if (updateErr) return res.status(500).json({ error: '申請提交失敗：' + updateErr.message });
 
-    // ── LINE Notify 通知（背景執行，不影響回應）──
-    const LINE_NOTIFY_TOKEN = process.env.LINE_NOTIFY_TOKEN;
-    if (LINE_NOTIFY_TOKEN) {
-      fetch('https://notify-api.line.me/api/notify', {
+    // ── LINE Messaging API 推播通知（背景執行，不影響回應）──
+    const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    const LINE_UID   = process.env.LINE_USER_ID;
+    if (LINE_TOKEN && LINE_UID) {
+      fetch('https://api.line.me/v2/bot/message/push', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LINE_NOTIFY_TOKEN}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Authorization': `Bearer ${LINE_TOKEN}`,
+          'Content-Type': 'application/json'
         },
-        body: `message=${encodeURIComponent(`
-【AI Staging Pro】新試用申請
-申請者：${userEmail}
-請前往後台審核：https://ai-staging-pro-puce.vercel.app/admin.html`)}`
+        body: JSON.stringify({
+          to: LINE_UID,
+          messages: [{
+            type: 'text',
+            text: `【AI Staging Pro】新試用申請\n申請者：${userEmail}\n請前往後台審核：\nhttps://ai-staging-pro-puce.vercel.app/admin.html`
+          }]
+        })
       }).catch(e => console.warn('LINE 通知失敗:', e));
     }
 
