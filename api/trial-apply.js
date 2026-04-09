@@ -41,6 +41,10 @@ export default async function handler(req, res) {
   if (action === 'confirm') {
     if (!userId || !docPath) return res.status(400).json({ error: '缺少參數' });
 
+    // 取得申請者 email
+    const { data: userData } = await supabase.auth.admin.getUserById(userId);
+    const userEmail = userData?.user?.email || '未知';
+
     const { error: updateErr } = await supabase
       .from('profiles')
       .update({
@@ -52,6 +56,22 @@ export default async function handler(req, res) {
       .eq('id', userId);
 
     if (updateErr) return res.status(500).json({ error: '申請提交失敗：' + updateErr.message });
+
+    // ── LINE Notify 通知（背景執行，不影響回應）──
+    const LINE_NOTIFY_TOKEN = process.env.LINE_NOTIFY_TOKEN;
+    if (LINE_NOTIFY_TOKEN) {
+      fetch('https://notify-api.line.me/api/notify', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LINE_NOTIFY_TOKEN}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `message=${encodeURIComponent(`
+【AI Staging Pro】新試用申請
+申請者：${userEmail}
+請前往後台審核：https://ai-staging-pro-puce.vercel.app/admin.html`)}`
+      }).catch(e => console.warn('LINE 通知失敗:', e));
+    }
 
     return res.status(200).json({ success: true });
   }
