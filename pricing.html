@@ -365,8 +365,7 @@ function checkout(planId){
   // 點數包不需要推薦碼，直接結帳
   if(planId.startsWith('credits_')){
     pendingPlanId = planId;
-    document.getElementById('checkoutReferral').value = '';
-    proceedToPayment('');
+    proceedToPayment(planId, null);
     return;
   }
   // 訂閱方案開啟 Modal
@@ -383,11 +382,12 @@ function closeCheckoutModal(){
 
 async function confirmCheckout(){
   const referralCode = document.getElementById('checkoutReferral').value.trim().toUpperCase() || null;
+  const planId = pendingPlanId; // 先記住，關 Modal 後 pendingPlanId 會被清掉
   closeCheckoutModal();
-  await proceedToPayment(referralCode);
+  await proceedToPayment(planId, referralCode);
 }
 
-async function proceedToPayment(referralCode){
+async function proceedToPayment(planId, referralCode){
   showToast('建立訂單中…');
   const btn = document.getElementById('checkoutConfirmBtn');
   if(btn) btn.disabled = true;
@@ -396,7 +396,7 @@ async function proceedToPayment(referralCode){
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        planId:       pendingPlanId,
+        planId:       planId,
         userId:       currentUser.id,
         userEmail:    currentUser.email,
         referralCode: referralCode || null
