@@ -108,6 +108,31 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--ink);color:white;padding:10px 22px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;opacity:0;transition:all 0.3s;pointer-events:none;z-index:9999;box-shadow:var(--shadow-lg);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
+/* 推薦獎勵區塊 */
+.referral-banner{background:var(--bg-2);border:1px solid rgba(168,132,74,0.25);border-left:3px solid var(--gold);padding:1.6rem 2rem;margin-bottom:3rem;display:flex;align-items:flex-start;gap:1.2rem;}
+.referral-banner-icon{font-size:1.6rem;flex-shrink:0;line-height:1;}
+.referral-banner-title{font-family:var(--font-mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;}
+.referral-banner-text{font-size:13px;color:var(--ink-2);line-height:1.8;}
+.referral-banner-text strong{color:var(--green);}
+
+/* 結帳 Modal */
+#checkoutModal{display:none;position:fixed;inset:0;background:rgba(26,26,24,0.55);backdrop-filter:blur(6px);align-items:center;justify-content:center;z-index:9000;}
+#checkoutModal.open{display:flex;}
+.checkout-box{background:var(--bg-2);border:1px solid var(--border);padding:2.5rem;max-width:400px;width:90%;box-shadow:var(--shadow-lg);}
+.checkout-title{font-family:var(--font-display);font-size:1.3rem;font-weight:500;color:var(--ink);margin-bottom:4px;}
+.checkout-plan{font-family:var(--font-mono);font-size:11px;color:var(--gold);letter-spacing:0.1em;margin-bottom:1.6rem;}
+.checkout-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:6px;display:block;}
+.checkout-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--ink);font-family:var(--font-mono);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;padding:10px 12px;outline:none;transition:border-color 0.2s;margin-bottom:4px;}
+.checkout-input:focus{border-color:var(--green);}
+.checkout-hint{font-size:11px;color:var(--ink-subtle);margin-bottom:1.6rem;font-family:var(--font-mono);}
+.checkout-divider{height:1px;background:var(--border);margin:1.2rem 0;}
+.checkout-btns{display:flex;gap:8px;margin-top:1.2rem;}
+.checkout-confirm{flex:1;padding:12px;background:var(--green);color:white;border:none;font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;transition:background 0.2s;}
+.checkout-confirm:hover{background:var(--green-2);}
+.checkout-confirm:disabled{opacity:0.6;cursor:not-allowed;}
+.checkout-cancel{padding:12px 20px;background:transparent;border:1px solid var(--border);color:var(--ink-muted);font-family:var(--font-mono);font-size:11px;cursor:pointer;transition:all 0.2s;}
+.checkout-cancel:hover{border-color:var(--ink-muted);color:var(--ink);}
+
 @media(max-width:768px){
   header{padding:0 20px;}
   .main{padding:80px 20px 60px;}
@@ -206,6 +231,18 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
     </div>
   </div>
 
+  <!-- 推薦獎勵說明 -->
+  <div class="referral-banner">
+    <div class="referral-banner-icon">🎁</div>
+    <div>
+      <div class="referral-banner-title">推薦獎勵計畫</div>
+      <div class="referral-banner-text">
+        將您的推薦碼分享給同事，對方<strong>首次訂閱月費或年費方案</strong>後，您可獲得 <strong>200 點獎勵</strong>（約 10 次生成）。每位新用戶限計一次，不限推薦人數。<br>
+        <span style="color:var(--ink-muted);font-size:12px;">推薦碼可在登入後於帳號頁面複製。結帳時填入朋友的推薦碼，即可讓對方獲得獎勵資格。</span>
+      </div>
+    </div>
+  </div>
+
   <!-- FAQ -->
   <div class="faq">
     <div class="faq-item" onclick="toggleFaq(this)">
@@ -234,6 +271,22 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
   </div>
 </div>
 
+<!-- 結帳 Modal（含推薦碼欄位）-->
+<div id="checkoutModal">
+  <div class="checkout-box">
+    <div class="checkout-title">確認訂單</div>
+    <div class="checkout-plan" id="checkoutPlanName"></div>
+    <div class="checkout-divider"></div>
+    <label class="checkout-label">推薦碼（選填）</label>
+    <input class="checkout-input" type="text" id="checkoutReferral" placeholder="輸入朋友的推薦碼" maxlength="10">
+    <div class="checkout-hint">填入推薦您的朋友推薦碼，對方將獲得 200 點獎勵</div>
+    <div class="checkout-btns">
+      <button class="checkout-cancel" onclick="closeCheckoutModal()">取消</button>
+      <button class="checkout-confirm" id="checkoutConfirmBtn" onclick="confirmCheckout()">前往付款 →</button>
+    </div>
+  </div>
+</div>
+
 <!-- 未登入提示 -->
 <div id="authPrompt">
   <div class="auth-box">
@@ -258,6 +311,17 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
 const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 let currentUser = null;
 let isYearly = false;
+let pendingPlanId = null;
+
+const PLAN_NAMES = {
+  mini_monthly: '迷你方案 — NT$899/月',
+  standard_monthly: '標準方案 — NT$1,980/月',
+  mini_yearly: '迷你方案 — NT$8,990/年',
+  standard_yearly: '標準方案 — NT$19,800/年',
+  credits_100: '入門點數包 — NT$390',
+  credits_300: '標準點數包 — NT$990',
+  credits_600: '超值點數包 — NT$1,680',
+};
 
 async function init(){
   const { data:{ session } } = await _sb.auth.getSession();
@@ -293,20 +357,49 @@ function toggleBilling(){
   }
 }
 
-async function checkout(planId){
+function checkout(planId){
   if(!currentUser){
     document.getElementById('authPrompt').classList.add('open');
     return;
   }
+  // 點數包不需要推薦碼，直接結帳
+  if(planId.startsWith('credits_')){
+    pendingPlanId = planId;
+    document.getElementById('checkoutReferral').value = '';
+    proceedToPayment('');
+    return;
+  }
+  // 訂閱方案開啟 Modal
+  pendingPlanId = planId;
+  document.getElementById('checkoutPlanName').textContent = PLAN_NAMES[planId] || planId;
+  document.getElementById('checkoutReferral').value = '';
+  document.getElementById('checkoutModal').classList.add('open');
+}
+
+function closeCheckoutModal(){
+  document.getElementById('checkoutModal').classList.remove('open');
+  pendingPlanId = null;
+}
+
+async function confirmCheckout(){
+  const referralCode = document.getElementById('checkoutReferral').value.trim().toUpperCase() || null;
+  closeCheckoutModal();
+  await proceedToPayment(referralCode);
+}
+
+async function proceedToPayment(referralCode){
   showToast('建立訂單中…');
+  const btn = document.getElementById('checkoutConfirmBtn');
+  if(btn) btn.disabled = true;
   try{
     const res = await fetch('/api/newebpay-create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        planId,
-        userId:    currentUser.id,
-        userEmail: currentUser.email
+        planId:       pendingPlanId,
+        userId:       currentUser.id,
+        userEmail:    currentUser.email,
+        referralCode: referralCode || null
       })
     });
     const data = await res.json();
@@ -322,6 +415,7 @@ async function checkout(planId){
     form.submit();
   }catch(e){
     showToast('錯誤：' + e.message);
+    if(btn) btn.disabled = false;
   }
 }
 
