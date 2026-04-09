@@ -1,145 +1,122 @@
-// api/newebpay-webhook.js
-// 接收藍新付款結果通知，自動給點（使用原子 RPC 防止並發問題）
+// api/newebpay-create.js
+// 建立藍新金流訂單
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
-const HASH_KEY = process.env.NEWEBPAY_HASH_KEY;
-const HASH_IV  = process.env.NEWEBPAY_HASH_IV;
+const MERCHANT_ID  = process.env.NEWEBPAY_MERCHANT_ID || 'MS1825863020';
+const HASH_KEY     = process.env.NEWEBPAY_HASH_KEY;
+const HASH_IV      = process.env.NEWEBPAY_HASH_IV;
+const SITE_URL     = process.env.SITE_URL || 'https://ai-staging-pro-puce.vercel.app';
 
-function aesDecrypt(encryptedData, key, iv) {
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-  decipher.setAutoPadding(false);
-  let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted.replace(/[\x00-\x1F\x7F]/g, '').trim();
+// 方案定義
+const PLANS = {
+  mini_monthly:     { name: 'AI Staging Pro 迷你月費', amount: 899,  credits: 300,  type: 'subscription' },
+  standard_monthly: { name: 'AI Staging Pro 標準月費', amount: 1980, credits: 1000, type: 'subscription' },
+  mini_yearly:      { name: 'AI Staging Pro 迷你年費', amount: 8990, credits: 3600, type: 'subscription' },
+  standard_yearly:  { name: 'AI Staging Pro 標準年費', amount: 19800,credits: 12000,type: 'subscription' },
+  credits_100:      { name: 'AI Staging Pro 入門點數包', amount: 390,  credits: 100,  type: 'credits' },
+  credits_300:      { name: 'AI Staging Pro 標準點數包', amount: 990,  credits: 300,  type: 'credits' },
+  credits_600:      { name: 'AI Staging Pro 超值點數包', amount: 1680, credits: 600,  type: 'credits' },
+};
+
+function aesEncrypt(data, key, iv) {
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  let encrypted = cipher.update(data, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+}
+
+function generateShaHash(data, key, iv) {
+  const str = `HashKey=${key}&${data}&HashIV=${iv}`;
+  return crypto.createHash('sha256').update(str).digest('hex').toUpperCase();
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  try {
-    const { Status, TradeInfo } = req.body;
+  const { planId, userId, userEmail, referralCode } = req.body;
+  if (!planId || !userId) return res.status(400).json({ error: '缺少必要參數' });
 
-    if (Status !== 'SUCCESS') {
-      console.log('藍新通知非成功狀態:', Status);
-      return res.status(200).send('OK');
-    }
+  const plan = PLANS[planId];
+  if (!plan) return res.status(400).json({ error: '無效的方案' });
 
-    const decrypted = aesDecrypt(TradeInfo, HASH_KEY, HASH_IV);
-    const tradeData = JSON.parse(decrypted);
-    const { Result } = tradeData;
-    if (!Result) return res.status(200).send('OK');
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 
-    const orderNo     = Result.MerchantOrderNo;
-    const tradeNo     = Result.TradeNo;
-    const paidAmount  = parseInt(Result.Amt);
-    const paymentType = Result.PaymentType;
+  // 建立訂單號碼（時間戳 + 隨機）
+  const orderNo = `ASP${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+  // 寫入訂單
+  const { error: orderErr } = await supabase.from('orders').insert({
+    user_id:   userId,
+    order_no:  orderNo,
+    plan_type: planId,
+    amount:    plan.amount,
+    credits:   plan.credits,
+    status:    'pending'
+  });
 
-    // 查詢訂單（只處理 pending 狀態，防止重複給點）
-    const { data: order, error: orderErr } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('order_no', orderNo)
-      .eq('status', 'pending')
-      .single();
+  if (orderErr) return res.status(500).json({ error: '建立訂單失敗' });
 
-    if (orderErr || !order) {
-      console.error('找不到訂單或已處理:', orderNo);
-      return res.status(200).send('OK');
-    }
-
-    // 驗證金額
-    if (paidAmount !== order.amount) {
-      console.error('金額不符:', paidAmount, '!=', order.amount);
-      return res.status(200).send('OK');
-    }
-
-    // 更新訂單狀態（先更新，防止 Webhook 重複觸發）
-    const { error: updateErr } = await supabase.from('orders').update({
-      status:            'paid',
-      payment_method:    paymentType,
-      newebpay_trade_no: tradeNo,
-      paid_at:           new Date().toISOString()
-    }).eq('order_no', orderNo).eq('status', 'pending'); // 雙重確認 pending
-
-    if (updateErr) {
-      console.error('訂單更新失敗，可能已處理:', orderNo);
-      return res.status(200).send('OK');
-    }
-
-    // ── 原子加點（防止並發覆蓋）──
-    const { data: addResult, error: addErr } = await supabase
-      .rpc('add_credits', {
-        p_user_id: order.user_id,
-        p_amount:  order.credits
-      });
-
-    if (addErr) {
-      console.error('加點失敗:', addErr);
-    } else {
-      console.log(`訂單 ${orderNo} 付款成功，加 ${order.credits} 點，剩餘 ${addResult?.new_credits} 點`);
-    }
-
-    // 訂閱方案 → 更新角色為 subscriber
-    if (order.plan_type.includes('monthly') || order.plan_type.includes('yearly')) {
-      await supabase.from('profiles').update({
-        role:       'subscriber',
-        updated_at: new Date().toISOString()
-      }).eq('id', order.user_id);
-    }
-
-    // ── 推薦獎勵（原子加點）──
-    const { data: profile } = await supabase
+  // 若有填推薦碼，且方案為訂閱方案，存入 profiles.referred_by（不覆蓋已有的）
+  if (referralCode && plan.type === 'subscription') {
+    const code = referralCode.trim().toUpperCase();
+    // 先確認推薦碼存在
+    const { data: referrer } = await supabase
       .from('profiles')
-      .select('referred_by')
-      .eq('id', order.user_id)
+      .select('id')
+      .eq('referral_code', code)
       .single();
 
-    if (profile?.referred_by) {
-      const { data: referrer } = await supabase
+    if (referrer && referrer.id !== userId) {
+      // 只有當 referred_by 還是空的才寫入（避免蓋掉試用申請時填的）
+      await supabase
         .from('profiles')
-        .select('id')
-        .eq('referral_code', profile.referred_by)
-        .single();
-
-      if (referrer) {
-        // 確認未給過推薦獎勵
-        const { data: existing } = await supabase
-          .from('referral_logs')
-          .select('id')
-          .eq('referred_id', order.user_id)
-          .eq('status', 'rewarded')
-          .maybeSingle();
-
-        if (!existing) {
-          // 原子加 200 點給推薦人
-          await supabase.rpc('add_credits', {
-            p_user_id: referrer.id,
-            p_amount:  200
-          });
-
-          // 記錄推薦獎勵
-          await supabase.from('referral_logs').insert({
-            referrer_id: referrer.id,
-            referred_id: order.user_id,
-            status:      'rewarded'
-          });
-
-          console.log(`推薦獎勵：給 ${referrer.id} 加 200 點`);
-        }
-      }
+        .update({ referred_by: code, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .is('referred_by', null);
     }
-
-    return res.status(200).send('OK');
-
-  } catch (err) {
-    console.error('Webhook 處理錯誤:', err);
-    return res.status(200).send('OK');
   }
+
+  // 組成藍新交易參數
+  const tradeInfo = new URLSearchParams({
+    MerchantID:     MERCHANT_ID,
+    RespondType:    'JSON',
+    TimeStamp:      Math.floor(Date.now() / 1000).toString(),
+    Version:        '2.0',
+    MerchantOrderNo: orderNo,
+    Amt:            plan.amount.toString(),
+    ItemDesc:       plan.name,
+    Email:          userEmail || '',
+    NotifyURL:      `${SITE_URL}/api/newebpay-webhook`,
+    ReturnURL:      `${SITE_URL}/payment-result.html`,
+    ClientBackURL:  `${SITE_URL}/pricing.html`,
+    CREDIT:         '1',  // 信用卡
+    ANDROIDPAY:     '1',  // Google Pay
+    APPLEPAY:       '1',  // Apple Pay
+  }).toString();
+
+  const encryptedTradeInfo = aesEncrypt(tradeInfo, HASH_KEY, HASH_IV);
+  const tradeSha = generateShaHash(encryptedTradeInfo, HASH_KEY, HASH_IV);
+
+  return res.status(200).json({
+    success: true,
+    orderNo,
+    formData: {
+      MerchantID:  MERCHANT_ID,
+      TradeInfo:   encryptedTradeInfo,
+      TradeSha:    tradeSha,
+      Version:     '2.0',
+    },
+    // 測試環境用 sandbox，正式環境用 payment
+    paymentUrl: 'https://ccore.newebpay.com/MPG/mpg_gateway'  // 測試環境
+    // paymentUrl: 'https://core.newebpay.com/MPG/mpg_gateway'  // 正式環境
+  });
 }
