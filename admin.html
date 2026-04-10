@@ -238,7 +238,7 @@ td.primary{color:var(--text);}
           </div>
         </div>
         <table>
-          <thead><tr><th>Email</th><th>角色</th><th>點數</th><th>總消耗</th><th>建立時間</th><th id="memberActionHeader">操作</th></tr></thead>
+          <thead><tr><th>Email</th><th>角色</th><th>方案</th><th>點數</th><th>總消耗</th><th>建立時間</th><th id="memberActionHeader">操作</th></tr></thead>
           <tbody id="membersList"><tr class="loading-row"><td colspan="6"><span class="spin"></span>載入中…</td></tr></tbody>
         </table>
       </div>
@@ -454,16 +454,25 @@ async function loadMembers(){
   }
 }
 
+function planBadge(level, billing){
+  if(!level) return '<span style="color:var(--text-subtle);font-size:0.68rem;">—</span>';
+  const levelText = level === 'standard' ? '標準' : '迷你';
+  const billingText = billing === 'yearly' ? '年' : '月';
+  const color = level === 'standard' ? 'var(--gold)' : 'var(--manager)';
+  return `<span style="font-size:0.68rem;padding:2px 7px;border:1px solid ${color};color:${color};letter-spacing:0.05em;">${levelText}/${billingText}</span>`;
+}
+
 function renderMembers(list){
   const tbody = document.getElementById('membersList');
   if(!list || list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">目前沒有會員</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">目前沒有會員</td></tr>';
     return;
   }
   tbody.innerHTML = list.map(u => `
     <tr>
       <td class="primary">${u.email || '—'}</td>
       <td>${roleBadge(u.role)}</td>
+      <td>${planBadge(u.plan_level, u.plan_billing)}</td>
       <td><strong style="color:var(--gold)">${u.credits ?? 0}</strong></td>
       <td>${u.total_used ?? 0}</td>
       <td>${fmtDate(u.created_at)}</td>
@@ -487,7 +496,7 @@ function exportMembers(){
   const now = new Date();
   const rows = [
     // 標題列
-    ['Email','角色','點數','總消耗','是否試用申請','試用到期日','推薦碼','推薦來源','建立時間']
+    ['Email','角色','方案等級','付費週期','保存天數','點數','總消耗','是否試用申請','試用到期日','推薦碼','推薦來源','付費開始日','建立時間']
   ];
 
   allMembers.forEach(u => {
@@ -500,12 +509,16 @@ function exportMembers(){
     rows.push([
       u.email || '',
       u.role || '',
+      u.plan_level || '—',
+      u.plan_billing || '—',
+      u.storage_days ?? 30,
       u.credits ?? 0,
       u.total_used ?? 0,
       isTrial ? '是' : '否',
       trialExpired,
       u.referral_code || '—',
       u.referred_by || '—',
+      u.plan_started_at ? new Date(u.plan_started_at).toLocaleDateString('zh-TW') : '—',
       u.created_at ? new Date(u.created_at).toLocaleDateString('zh-TW') : ''
     ]);
   });
