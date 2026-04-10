@@ -915,7 +915,12 @@ function updateHeaderUI(){
 }
 function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').classList.toggle('open');}else{openAuth();}}
 function closeUserMenu(){document.getElementById('userMenu').classList.remove('open');}
-async function handleSignOut(){closeUserMenu();await _sb.auth.signOut();showToast('已登出');}
+async function handleSignOut(){
+  closeUserMenu();
+  await _sb.auth.signOut();
+  onLogout();
+  showToast('已登出');
+}
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
 function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open');clearAuMsg();}
