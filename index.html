@@ -937,9 +937,31 @@ async function doLogin(){
   const password=document.getElementById('loginPassword').value;
   if(!email||!password){showAuMsg('請填寫電子郵件與密碼');return;}
   setAuLoading('loginBtn',true);
-  try{const{error}=await _sb.auth.signInWithPassword({email,password});if(error)throw error;}
-  catch(e){showAuMsg(e.message||'帳號或密碼錯誤');}
+  try{
+    const{error}=await _sb.auth.signInWithPassword({email,password});
+    if(error)throw error;
+  }
+  catch(e){
+    // 未驗證信箱
+    if(e.message&&(e.message.includes('Email not confirmed')||e.message.includes('email_not_confirmed'))){
+      const el=document.getElementById('auMsg');
+      el.className='au-msg error';
+      el.innerHTML='請先至信箱點擊驗證連結以啟用帳號。<br><a href="#" onclick="resendConfirmEmail(event)" style="color:#C04B3A;text-decoration:underline;font-size:0.72rem;">重新發送驗證信</a>';
+      window._pendingConfirmEmail=email;
+    } else {
+      showAuMsg(e.message||'帳號或密碼錯誤');
+    }
+  }
   finally{setAuLoading('loginBtn',false,'登入');}
+}
+
+async function resendConfirmEmail(e){
+  e.preventDefault();
+  const email=window._pendingConfirmEmail||document.getElementById('loginEmail').value.trim();
+  if(!email){showAuMsg('請填寫電子郵件');return;}
+  const{error}=await _sb.auth.resend({type:'signup',email});
+  if(error){showAuMsg('發送失敗：'+error.message);}
+  else{showAuMsg('驗證信已重新發送，請檢查信箱。','success');}
 }
 async function doRegister(){
   clearAuMsg();
@@ -950,7 +972,7 @@ async function doRegister(){
   if(pass.length<8){showAuMsg('密碼至少需要 8 個字元');return;}
   if(pass!==confirm){showAuMsg('兩次密碼輸入不一致');return;}
   setAuLoading('registerBtn',true);
-  try{const{error}=await _sb.auth.signUp({email,password:pass});if(error)throw error;showAuMsg('帳號建立成功！請確認您的電子郵件以啟用帳號。','success');}
+  try{const{error}=await _sb.auth.signUp({email,password:pass});if(error)throw error;showAuMsg('帳號建立成功！請至信箱點擊驗證連結以啟用帳號（連結 1 小時內有效）。','success');}
   catch(e){showAuMsg(e.message||'註冊失敗，請稍後再試');}
   finally{setAuLoading('registerBtn',false,'建立帳號');}
 }
