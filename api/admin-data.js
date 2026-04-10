@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     if (action === 'getMembers') {
       const { data } = await supabase
         .from('profiles')
-        .select('id, email, role, credits, total_used, created_at, referral_code, referred_by, trial_expires_at')
+        .select('id, email, role, credits, total_used, created_at, referral_code, referred_by, trial_expires_at, plan_level, plan_billing, storage_days, plan_started_at')
         .order('created_at', { ascending: false });
       return res.status(200).json({ members: data || [] });
     }
