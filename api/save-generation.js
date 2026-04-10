@@ -16,13 +16,20 @@ export default async function handler(req, res) {
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY  // 需要 service role key 才能寫 storage
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
+  // 讀取用戶的 storage_days（沒有設定則預設 30 天）
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('storage_days')
+    .eq('id', userId)
+    .single();
+  const storageDays = profile?.storage_days || 30;
+
   const now = new Date();
-  const imgExpires = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // 60天
-  const vidExpires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30天
-  const timestamp  = now.getTime();
+  const expires = new Date(now.getTime() + storageDays * 24 * 60 * 60 * 1000);
+  const timestamp = now.getTime();
 
   let savedImageUrl = null;
   let savedVideoUrl = null;
@@ -72,11 +79,10 @@ export default async function handler(req, res) {
         .update({
           image_url:  savedImageUrl,
           video_url:  savedVideoUrl,
-          expires_at: vidExpires.toISOString()
+          expires_at: expires.toISOString()
         })
         .eq('id', logId);
     } else if (savedImageUrl || savedVideoUrl) {
-      // 如果沒有 logId，新增一筆紀錄
       await supabase.from('generation_logs').insert({
         user_id:      userId,
         type:         videoUrl ? 'video' : 'image',
@@ -85,16 +91,16 @@ export default async function handler(req, res) {
         credits_used: 20,
         image_url:    savedImageUrl,
         video_url:    savedVideoUrl,
-        expires_at:   vidExpires.toISOString()
+        expires_at:   expires.toISOString()
       });
     }
 
     return res.status(200).json({
-      success:       true,
+      success:      true,
       savedImageUrl,
       savedVideoUrl,
-      imageExpires:  imgExpires.toISOString(),
-      videoExpires:  vidExpires.toISOString()
+      expires:      expires.toISOString(),
+      storageDays
     });
 
   } catch (err) {
