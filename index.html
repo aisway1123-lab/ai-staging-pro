@@ -917,9 +917,17 @@ function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').cla
 function closeUserMenu(){document.getElementById('userMenu').classList.remove('open');}
 async function handleSignOut(){
   closeUserMenu();
-  await _sb.auth.signOut();
-  onLogout();
+  onLogout(); // 先立即更新 UI，不等後端回應
   showToast('已登出');
+  try{
+    await Promise.race([
+      _sb.auth.signOut(),
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),3000))
+    ]);
+  }catch(e){
+    // signOut 失敗或 timeout 都沒關係，UI 已經清除
+    console.warn('signOut warning:', e.message);
+  }
 }
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
 function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
