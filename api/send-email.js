@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       </div>
       <!-- CTA -->
       <div style="text-align:center;margin-bottom:32px;">
-        <a href="https://ai-staging-pro-puce.vercel.app" style="display:inline-block;background:#2C4A3E;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
+        <a href="https://www.aistaging.pro" style="display:inline-block;background:#2C4A3E;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
           立即開始生成
         </a>
       </div>
@@ -72,8 +72,8 @@ export default async function handler(req, res) {
     <div style="background:#F0EDE6;padding:20px;text-align:center;border-top:1px solid rgba(26,26,24,0.1);">
       <div style="font-size:11px;color:#8A8880;line-height:1.8;">
         AI Staging Pro｜空屋變夢想家<br>
-        <a href="https://ai-staging-pro-puce.vercel.app/terms.html" style="color:#8A8880;">服務條款</a>　|　
-        <a href="https://ai-staging-pro-puce.vercel.app/terms.html#privacy" style="color:#8A8880;">隱私政策</a>
+        <a href="https://www.aistaging.pro/terms.html" style="color:#8A8880;">服務條款</a>　|　
+        <a href="https://www.aistaging.pro/terms.html#privacy" style="color:#8A8880;">隱私政策</a>
       </div>
     </div>
   </div>
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
         您的 AI Staging Pro 試用點數將於 <strong style="color:#A8844A;">${daysLeft} 天後</strong>到期，剩餘 <strong style="color:#2C4A3E;">${data?.credits || 0} 點</strong>。
       </p>
       <div style="text-align:center;margin-bottom:28px;">
-        <a href="https://ai-staging-pro-puce.vercel.app/pricing.html" style="display:inline-block;background:#2C4A3E;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
+        <a href="https://www.aistaging.pro/pricing.html" style="display:inline-block;background:#2C4A3E;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
           選擇方案繼續使用
         </a>
       </div>
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'AI Staging Pro <onboarding@resend.dev>',
+        from: 'AI Staging Pro <no-reply@aistaging.pro>',
         to: [to],
         subject,
         html
