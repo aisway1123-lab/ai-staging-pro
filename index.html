@@ -1030,6 +1030,33 @@ uz.addEventListener('drop',e=>{e.preventDefault();uz.style.borderColor='';const 
 fi.addEventListener('change',e=>{if(e.target.files[0])processImage(e.target.files[0]);});
 
 function processImage(file){
+  // 未登入：阻擋，引導登入
+  if(!currentUser){
+    showToast('請先登入以使用生成功能');
+    openAuth('login');
+    return;
+  }
+  // 點數不足：阻擋，引導購買
+  const role = currentProfile?.role;
+  const credits = currentProfile?.credits ?? 0;
+  if(role !== 'admin' && credits < 20){
+    showToast('點數不足！即將前往購買頁面…');
+    setTimeout(()=>window.location.href='/pricing.html', 1500);
+    return;
+  }
+  // 試用審核中
+  if(role === 'trial_pending'){
+    showToast('您的試用申請審核中，請稍候通知');
+    return;
+  }
+  // 試用已到期
+  if(role === 'trial' && currentProfile?.trial_expires_at){
+    if(new Date(currentProfile.trial_expires_at) < new Date()){
+      showToast('試用期已到期，請選擇方案繼續使用');
+      setTimeout(()=>window.location.href='/pricing.html', 1500);
+      return;
+    }
+  }
   const r=new FileReader();
   r.onload=e=>{
     uploadedImageBase64=e.target.result;
