@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     <div style="padding:40px 36px;">
       <p style="font-size:15px;color:#1A1A18;line-height:1.8;margin-bottom:20px;">您好，</p>
       <p style="font-size:15px;color:#3D3D3A;line-height:1.8;margin-bottom:20px;">
-        感謝您申請 AI Staging Pro 房仲專屬試用方案。您的資格審核已通過，帳號現已開通 <strong style="color:#2C4A3E;">60 點</strong>免費試用額度。
+        感謝您申請 AI Staging Pro 不動產、室內設計等房地產相關行業試用方案。您的資格審核已通過，帳號現已開通 <strong style="color:#2C4A3E;">60 點</strong>免費試用額度。
       </p>
       <!-- 點數說明 -->
       <div style="background:#EBF0EE;border-left:3px solid #2C4A3E;padding:16px 20px;margin-bottom:24px;">
