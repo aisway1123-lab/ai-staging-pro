@@ -31,12 +31,43 @@ export default async function handler(req, res) {
   }
 
   try {
+    // ── 調整點數 ──
+    if (action === 'updateCredits') {
+      const { userId, newCredits } = req.body;
+      if (!userId || newCredits === undefined) return res.status(400).json({ error: '缺少參數' });
+      if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以調整點數' });
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ credits: newCredits, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (updateErr) return res.status(500).json({ error: '更新失敗：' + updateErr.message });
+      return res.status(200).json({ success: true });
+    }
+
+    // ── 改角色 ──
+    if (action === 'updateRole') {
+      const { userId, newRole } = req.body;
+      const validRoles = ['free','trial','subscriber','manager','admin'];
+      if (!userId || !newRole) return res.status(400).json({ error: '缺少參數' });
+      if (!validRoles.includes(newRole)) return res.status(400).json({ error: '無效的角色' });
+      if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以改角色' });
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ role: newRole, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (updateErr) return res.status(500).json({ error: '更新失敗：' + updateErr.message });
+      return res.status(200).json({ success: true });
+    }
+
     // ── 核准試用申請 ──
     if (action === 'approveTrial') {
       const { userId, email } = req.body;
       if (!userId || !email) return res.status(400).json({ error: '缺少參數' });
+
+      // 只有 admin 可以核准
       if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以核准' });
 
+      // 更新 role 和 trial_expires_at
       const { error: updateErr } = await supabase
         .from('profiles')
         .update({
@@ -48,28 +79,15 @@ export default async function handler(req, res) {
 
       if (updateErr) return res.status(500).json({ error: '更新失敗：' + updateErr.message });
 
+      // 用 atomic RPC 加 60 點（不直接覆蓋，防止清掉既有點數）
       const { error: creditsErr } = await supabase.rpc('add_credits', {
         p_user_id: userId,
         p_amount:  60
       });
 
       if (creditsErr) return res.status(500).json({ error: '加點失敗：' + creditsErr.message });
-      console.log(`核准試用：${email}，加 60 點`);
-      return res.status(200).json({ success: true });
-    }
 
-    // ── 拒絕試用申請 ──
-    if (action === 'rejectTrial') {
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ error: '缺少參數' });
-      if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以拒絕' });
-
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({ role: 'free', updated_at: new Date().toISOString() })
-        .eq('id', userId);
-
-      if (updateErr) return res.status(500).json({ error: '操作失敗：' + updateErr.message });
+      console.log(`核准試用：${email}，加 60 點，到期 ${new Date(Date.now() + 7*24*60*60*1000).toISOString()}`);
       return res.status(200).json({ success: true });
     }
 
