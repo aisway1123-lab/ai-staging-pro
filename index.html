@@ -696,7 +696,7 @@ input[type="file"] { display: none; }
           <strong>點擊或拖曳上傳照片</strong>
           支援橫式或直式空屋照，保留原始比例
         </div>
-        <div class="upload-hint">JPG / PNG｜建議 2MB 以上清晰圖片</div>
+        <div class="upload-hint">JPG / PNG｜建議 2MB 以上清晰圖片｜最大 10MB</div>
         <button class="change-btn" onclick="resetUpload(event)">重新上傳</button>
       </div>
       <div class="precheck" id="precheck">
@@ -1071,6 +1071,11 @@ function processImage(file){
     openAuth('login');
     return;
   }
+  // 圖片大小限制 10MB
+  if(file.size > 10*1024*1024){
+    showToast('圖片大小不可超過 10MB，請壓縮後再上傳');
+    return;
+  }
   // 點數不足：阻擋，引導購買
   const role = currentProfile?.role;
   const credits = currentProfile?.credits ?? 0;
@@ -1237,7 +1242,7 @@ async function startGeneration(){
     showToast('試用期已到期，請選擇方案繼續使用');return;
   }
 }
-  const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
+　const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
   if(genCheck?.is_generating){showToast('您有一個生成任務正在進行中，請稍候再試');return;}
   await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
   document.getElementById('genBtn').disabled=true;
