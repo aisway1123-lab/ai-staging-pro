@@ -866,7 +866,7 @@ input[type="file"] { display: none; }
 </div>
 
 <script>
-const FAL_API_KEY = "";
+const FAL_API_KEY = ""; // 已移至後端，前台不使用
 const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 let currentUser=null,currentProfile=null;
 let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=null,imageAspectRatio='16:9';
@@ -1117,7 +1117,7 @@ function runPreCheck(){
   const pb=document.getElementById('precheckBody');
   const btn=document.getElementById('genBtn');
   pc.style.display='block';pc.className='precheck';
-  pb.innerHTML='<div class="vision-loading"><span class="vision-spin"></span>Claude Vision 分析中，請稍候…</div>';
+  pb.innerHTML='<div class="vision-loading"><span class="vision-spin"></span>AI 品質分析中，請稍候…</div>';
   btn.disabled=true;
   (async()=>{
     try{
@@ -1172,51 +1172,55 @@ function checkReady(){document.getElementById('genBtn').disabled=!(uploadedImage
 // ── GENERATION ──
 async function uploadImageToFal(base64DataUrl){
   setProgress('上傳圖片中…',5);
-  const res=await fetch(base64DataUrl);const blob=await res.blob();const file=new File([blob],'room.jpg',{type:blob.type});
-  let retries=0;while(!window.falClient&&retries<20){await new Promise(r=>setTimeout(r,200));retries++;}
-  if(!window.falClient)throw new Error('fal SDK 載入失敗，請重新整理頁面');
-  window.falClient.config({credentials:FAL_API_KEY});
-  return await window.falClient.storage.upload(file);
+  const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'upload',base64DataUrl})});
+  if(!res.ok)throw new Error('圖片上傳失敗，請重試');
+  const data=await res.json();
+  if(!data.url)throw new Error('圖片上傳失敗，請重試');
+  return data.url;
 }
 async function generateStagedImage(imageUrl,styleKey,roomKey){
   setProgress('生成裝潢效果圖…',20);
-  const stylePrompt=STYLE_PROMPTS[styleKey].prompt;const roomPrompt=ROOM_PROMPTS[roomKey];
-  const A_Structure=`This image is a virtual staging result for a real estate listing. It represents a realistic, achievable furnished version of the original room. Preserve all original walls, doors, windows, room openings, ceiling, and floor exactly. Remove or ignore any loose furniture, movable decor, and personal belongings. Built-in cabinetry, wardrobes, wall paneling, and fixed woodwork may be updated or replaced to match the selected interior style, but must maintain the same spatial position and footprint. Do not expand the room, do not add new windows or doors, do not change the room layout. Stage the space with new furniture and decor that matches the selected style.`;
-  const E_Presentation=`Interior staging visualization. High realism, professional real estate presentation. Designed to look like a model home. Visually appealing, aspirational, and marketable. Ceiling remains clean and simple, appropriate to the selected style.`;
-  const F_Negative=`Do not include: camera angle change, perspective shift, window shape change, wall modification, distorted geometry, warped perspective, bent lines, adding windows, adding doors, adding openings, architectural redesign, new rooms, new partitions, people, animals, text, watermark, logo, fantasy, surreal, cartoon, stylized.`;
-  const fullPrompt=`${A_Structure} ${roomPrompt} ${stylePrompt} ${E_Presentation} ${F_Negative}`;
-  const body={prompt:fullPrompt,image_urls:[imageUrl],lora_scale:0.75,guidance_scale:2.1,num_inference_steps:40,num_images:1,output_format:"png",enable_safety_checker:true};
-  const submitRes=await fetch('https://fal.run/fal-ai/flux-2-lora-gallery/apartment-staging',{method:'POST',headers:{'Authorization':`Key ${FAL_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!submitRes.ok){const err=await submitRes.text();throw new Error(`圖生圖失敗：${submitRes.status} ${err}`);}
-  const result=await submitRes.json();
-  if(result.request_id)return await pollResult(result.request_id,'fal-ai/flux-2-lora-gallery/apartment-staging',20,50);
-  return result.images?.[0]?.url;
+  const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'stageImage',imageUrl,styleKey,roomKey})});
+  if(!res.ok)throw new Error('效果圖生成失敗，請重試');
+  const data=await res.json();
+  if(data.requestId)return await pollResult(data.requestId,'fal-ai/flux-2-lora-gallery/apartment-staging',20,50);
+  if(!data.imageUrl)throw new Error('效果圖生成失敗，請重試');
+  return data.imageUrl;
 }
 async function generateVideo(startImageUrl,endImageUrl,styleKey){
   setProgress('生成動態影片…',55);
-  const styleLabel=STYLE_PROMPTS[styleKey].label;
-  let retries=0;while(!window.falClient&&retries<20){await new Promise(r=>setTimeout(r,200));retries++;}
-  if(!window.falClient)throw new Error('fal SDK 載入失敗，請重新整理頁面');
-  window.falClient.config({credentials:FAL_API_KEY});
-  const result=await window.falClient.subscribe('fal-ai/kling-video/o1/standard/image-to-video',{input:{prompt:`Interior staging transformation. Static camera, no camera movement, no sliding panels, no wipe transition. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. Walls, floor, and ceiling shift naturally to match the new style. New furniture and soft furnishings enter by sliding in smoothly from outside the frame, in 2 to 3 fast coordinated waves. Multiple objects move simultaneously. Motion is smooth, continuous, and controlled. Objects keep constant size while moving, no scaling, no popping, no sudden appearance. The final 1 second holds a stable, fully staged result. High realism, professional real estate visualization.`,start_image_url:startImageUrl,end_image_url:endImageUrl,duration:"5",negative_prompt:NEGATIVE_PROMPT_VIDEO},logs:true,onQueueUpdate:(update)=>{if(update.status==='IN_PROGRESS'){const pct=Math.min(55+Math.round((update.logs?.length||0)*2),93);setProgress('生成動態影片…',pct);}}});
-  return result.data?.video?.url;
+  const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'generateVideo',startImageUrl,endImageUrl,styleKey})});
+  if(!res.ok)throw new Error('影片生成失敗，請重試');
+  const data=await res.json();
+  if(data.requestId)return await pollVideoResult(data.requestId);
+  if(!data.videoUrl)throw new Error('影片生成失敗，請重試');
+  return data.videoUrl;
 }
 async function pollResult(requestId,modelPath,startPct,endPct){
-  const statusUrl=`https://fal.run/${modelPath}/requests/${requestId}/status`;
   let attempts=0;
   while(attempts<120){
     await sleep(2000);attempts++;
     const pct=Math.min(startPct+((endPct-startPct)*attempts/120),endPct-2);
     setProgress(document.getElementById('progressText').textContent,Math.round(pct));
-    const statusRes=await fetch(statusUrl,{headers:{'Authorization':`Key ${FAL_API_KEY}`}});
-    if(!statusRes.ok)continue;
-    const status=await statusRes.json();
-    if(status.status==='COMPLETED'){
-      const resultRes=await fetch(`https://fal.run/${modelPath}/requests/${requestId}`,{headers:{'Authorization':`Key ${FAL_API_KEY}`}});
-      const resultData=await resultRes.json();
-      return resultData.images?.[0]?.url||resultData.image?.url||resultData.video?.url||resultData.video_url||null;
-    }
-    if(status.status==='FAILED')throw new Error(`任務失敗：${status.error||'未知錯誤'}`);
+    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pollStatus',requestId,modelPath})});
+    if(!res.ok)continue;
+    const data=await res.json();
+    if(data.status==='COMPLETED')return data.imageUrl||data.videoUrl||null;
+    if(data.status==='FAILED')throw new Error(`任務失敗：${data.error||'未知錯誤'}`);
+  }
+  throw new Error('等待超時，請稍後再試');
+}
+async function pollVideoResult(requestId){
+  let attempts=0;
+  while(attempts<120){
+    await sleep(3000);attempts++;
+    const pct=Math.min(55+Math.round(attempts*0.8),93);
+    setProgress('生成動態影片…',pct);
+    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pollVideoStatus',requestId})});
+    if(!res.ok)continue;
+    const data=await res.json();
+    if(data.status==='COMPLETED')return data.videoUrl||null;
+    if(data.status==='FAILED')throw new Error(`影片生成失敗：${data.error||'未知錯誤'}`);
   }
   throw new Error('等待超時，請稍後再試');
 }
