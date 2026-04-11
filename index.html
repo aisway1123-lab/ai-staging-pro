@@ -673,7 +673,7 @@ input[type="file"] { display: none; }
 
 <section class="hero">
   <div class="hero-content">
-    <div class="hero-eyebrow">不動產與空間行銷 AI 工具</div>
+    <div class="hero-eyebrow">不動產、室內設計等房地產相關行業 AI 工具</div>
     <h1>空屋照片<br><em>秒變</em>夢想家居</h1>
     <p class="hero-desc">上傳空間照片，選擇裝潢風格，AI 自動生成專業樣品屋效果圖與動態影片，讓每一個空間都能打動客戶。</p>
   </div>
@@ -839,14 +839,14 @@ input[type="file"] { display: none; }
         <input class="au-input" type="password" id="regPasswordConfirm" placeholder="再次輸入密碼" autocomplete="new-password">
         <button class="au-submit" id="registerBtn" onclick="doRegister()"><span>建立帳號</span></button>
         <div class="au-notice" style="margin-top:1rem;">
-          <div class="au-notice-title">不動產／設計從業者</div>
-          <div class="au-notice-text">不動產或室內設計從業者？可申請免費試用。<a onclick="auTab('trial')">了解試用方案 →</a></div>
+          <div class="au-notice-title">不動產、室內設計等相關從業者</div>
+          <div class="au-notice-text">從事不動產、室內設計或其他房地產相關行業？可申請免費試用。<a onclick="auTab('trial')">了解試用方案 →</a></div>
         </div>
       </div>
       <div id="auPanel-trial" style="display:none">
         <div class="au-notice" style="margin-bottom:1.2rem;">
           <div class="au-notice-title">專業人士試用計畫</div>
-          <div class="au-notice-text">提供不動產、室內設計或相關從業證明，通過審核後獲得 <strong style="color:var(--gold)">60 點</strong>免費試用額度（7天有效）。審核時間約 1–2 個工作天。</div>
+          <div class="au-notice-text">提供不動產、室內設計或其他房地產相關行業之從業證明，通過審核後獲得 <strong style="color:var(--gold)">60 點</strong>免費試用額度（7天有效）。審核時間約 1–2 個工作天。</div>
         </div>
         <label class="au-label">電子郵件</label>
         <input class="au-input" type="email" id="trialEmail" placeholder="your@email.com">
@@ -937,7 +937,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAuth();});
 function auTab(tab){
   ['login','register','trial'].forEach(t=>{document.getElementById('auPanel-'+t).style.display='none';document.getElementById('auTab-'+t).classList.remove('active');});
   document.getElementById('auPanel-'+tab).style.display='block';document.getElementById('auTab-'+tab).classList.add('active');
-  const titles={login:['歡迎回來','登入以繼續使用您的帳號'],register:['建立帳號','開始您的專業房產展示之旅'],trial:['免費試用申請','專屬不動產／設計從業者的體驗方案']};
+  const titles={login:['歡迎回來','登入以繼續使用您的帳號'],register:['建立帳號','開始您的專業房產展示之旅'],trial:['免費試用申請','專屬不動產、室內設計等房地產相關行業從業者']};
   document.getElementById('auTitle').textContent=titles[tab][0];document.getElementById('auSub').textContent=titles[tab][1];clearAuMsg();
 }
 function showAuMsg(msg,type='error'){const el=document.getElementById('auMsg');el.textContent=msg;el.className='au-msg '+type;}
