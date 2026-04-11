@@ -72,7 +72,7 @@ export default async function handler(req, res) {
             to: LINE_UID,
             messages: [{
               type: 'text',
-              text: `【AI Staging Pro】新試用申請\n申請者：${userEmail}\n請前往後台審核：\nhttps://ai-staging-pro-puce.vercel.app/admin.html`
+              text: `【AI Staging Pro】新試用申請\n申請者：${userEmail}\n請前往後台審核：\nhttps://www.aistaging.pro/admin.html`
             }]
           })
         });
