@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 const MERCHANT_ID  = process.env.NEWEBPAY_MERCHANT_ID || 'MS1825863020';
 const HASH_KEY     = process.env.NEWEBPAY_HASH_KEY;
 const HASH_IV      = process.env.NEWEBPAY_HASH_IV;
-const SITE_URL     = process.env.SITE_URL || 'https://ai-staging-pro-puce.vercel.app';
+const SITE_URL     = process.env.SITE_URL || 'https://www.aistaging.pro';
 
 // 方案定義
 const PLANS = {
