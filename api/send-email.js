@@ -63,9 +63,8 @@ export default async function handler(req, res) {
         </div>
       </div>
       <p style="font-size:13px;color:#8A8880;line-height:1.8;">
-        如有任何問題，歡迎透過 LINE 或 Email 聯繫我們：<br>
-        LINE：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a><br>
-        Email：<a href="mailto:aisway1123@gmail.com" style="color:#2C4A3E;">aisway1123@gmail.com</a>
+        如有任何問題，歡迎透過 LINE 聯繫我們：<br>
+        LINE：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
       </p>
     </div>
     <!-- Footer -->
