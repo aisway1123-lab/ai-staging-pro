@@ -13,40 +13,13 @@ export default async function handler(req, res) {
 
   const { action } = req.body;
 
-  // ── 上傳圖片到 fal.ai storage ──
+  // ── 上傳圖片（直接回傳 base64 data URL，fal.ai 模型支援直接使用）──
   if (action === 'upload') {
     const { base64DataUrl } = req.body;
     if (!base64DataUrl) return res.status(400).json({ error: '缺少圖片資料' });
-
-    try {
-      // 解析 base64
-      const matches = base64DataUrl.match(/^data:(.+);base64,(.+)$/);
-      if (!matches) return res.status(400).json({ error: '圖片格式錯誤' });
-      const mimeType = matches[1];
-      const base64Data = matches[2];
-      const buffer = Buffer.from(base64Data, 'base64');
-
-      // 上傳到 fal.ai storage
-      const uploadRes = await fetch('https://fal.run/fal-ai/storage/upload/file', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${FAL_KEY}`,
-          'Content-Type': mimeType,
-          'Content-Length': buffer.length.toString()
-        },
-        body: buffer
-      });
-
-      if (!uploadRes.ok) {
-        const err = await uploadRes.text();
-        return res.status(500).json({ error: `上傳失敗：${err}` });
-      }
-
-      const data = await uploadRes.json();
-      return res.status(200).json({ url: data.url || data.access_url });
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
-    }
+    // fal-ai/flux-2-lora-gallery 支援直接使用 data URL 或 https URL
+    // 直接回傳，不需要先上傳到 fal storage
+    return res.status(200).json({ url: base64DataUrl });
   }
 
   // ── 圖生圖（效果圖）──
