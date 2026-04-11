@@ -59,6 +59,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     }
 
+    // ── 拒絕試用申請 ──
+    if (action === 'rejectTrial') {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: '缺少參數' });
+      if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以拒絕' });
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ role: 'free', updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (updateErr) return res.status(500).json({ error: '操作失敗：' + updateErr.message });
+      return res.status(200).json({ success: true });
+    }
+
     // ── 核准試用申請 ──
     if (action === 'approveTrial') {
       const { userId, email } = req.body;
