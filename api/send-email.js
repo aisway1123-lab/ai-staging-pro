@@ -66,6 +66,9 @@ export default async function handler(req, res) {
         如有任何問題，歡迎透過 LINE 聯繫我們：<br>
         LINE：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
       </p>
+      <p style="font-size:11px;color:#C4C0B8;line-height:1.8;margin-top:12px;">
+        若未收到本信，請檢查垃圾信件匣，並將 no-reply@aistaging.pro 加入聯絡人以確保日後正常收信。
+      </p>
     </div>
     <!-- Footer -->
     <div style="background:#F0EDE6;padding:20px;text-align:center;border-top:1px solid rgba(26,26,24,0.1);">
