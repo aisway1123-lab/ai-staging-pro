@@ -1246,7 +1246,7 @@ async function startGeneration(){
     showToast('試用期已到期，請選擇方案繼續使用');return;
   }
 }
-　const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
+  const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
   if(genCheck?.is_generating){showToast('您有一個生成任務正在進行中，請稍候再試');return;}
   await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
   document.getElementById('genBtn').disabled=true;
