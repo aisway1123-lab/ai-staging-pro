@@ -601,15 +601,9 @@ async function approveUser(userId, email){
 
 async function rejectUser(userId, email){
   if(!confirm(`確定拒絕 ${email} 的申請？`)) return;
-  const resp = await fetch('/api/admin-data', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'rejectTrial', adminId: adminUser.id, userId })
-  });
-  const result = await resp.json();
-  if(!result.success){ showToast('操作失敗：' + (result.error || '未知錯誤')); return; }
+  await _sb.from('profiles').update({ role: 'free' }).eq('id', userId);
   showToast(`已拒絕 ${email}`);
-  loadStats(); loadOverviewPending(); loadPending(); loadMembers();
+  loadStats(); loadOverviewPending(); loadPending();
 }
 
 // ── 生成紀錄 ──
@@ -658,10 +652,13 @@ function quickAdd(n){
 async function saveCredits(){
   const newVal = parseInt(document.getElementById('creditsModalNew').value);
   if(isNaN(newVal) || newVal < 0){ showToast('請輸入有效的點數'); return; }
-  const { error } = await _sb.from('profiles')
-    .update({ credits: newVal, updated_at: new Date().toISOString() })
-    .eq('id', editingUserId);
-  if(error){ showToast('更新失敗：' + error.message); return; }
+  const resp = await fetch('/api/admin-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'updateCredits', adminId: adminUser.id, userId: editingUserId, newCredits: newVal })
+  });
+  const result = await resp.json();
+  if(!result.success){ showToast('更新失敗：' + (result.error || '未知錯誤')); return; }
   showToast(`✓ 點數已更新為 ${newVal}`);
   closeModal('creditsModal');
   loadMembers(); loadStats();
@@ -673,10 +670,13 @@ async function changeRole(userId, email, currentRole){
   const roles = ['free','trial','subscriber','manager','admin'];
   const next = prompt(`${email} 目前角色：${currentRole}\n\n輸入新角色：free / trial / subscriber / manager / admin`, currentRole);
   if(!next || !roles.includes(next)) return;
-  const { error } = await _sb.from('profiles')
-    .update({ role: next, updated_at: new Date().toISOString() })
-    .eq('id', userId);
-  if(error){ showToast('更新失敗：' + error.message); return; }
+  const resp = await fetch('/api/admin-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'updateRole', adminId: adminUser.id, userId, newRole: next })
+  });
+  const result = await resp.json();
+  if(!result.success){ showToast('更新失敗：' + (result.error || '未知錯誤')); return; }
   showToast(`✓ ${email} 角色已改為 ${next}`);
   loadMembers();
 }
