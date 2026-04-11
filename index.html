@@ -1285,7 +1285,8 @@ async function startGeneration(){
     await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
     document.getElementById('progressWrap').classList.remove('visible');
     document.getElementById('errorBox').classList.add('visible');
-    document.getElementById('errorBody').textContent=`錯誤：${err.message}\n\n點數未扣除，請確認 API Key 是否正確，或稍後再試。`;
+    document.getElementById('errorBox').classList.add('visible');
+    document.getElementById('errorBody').textContent=`生成失敗，點數未扣除。\n\n可能原因：圖片格式不支援、網路不穩定或服務暫時繁忙。\n請稍後再試，或更換圖片後重新生成。如持續發生請聯繫 LINE 客服：@536vcequ`;
     document.getElementById('genBtn').disabled=false;
     console.error('Generation error:',err);
   }
