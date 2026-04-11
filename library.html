@@ -276,7 +276,13 @@ async function loadCreditsHistory(){
     .eq('status', 'paid')
     .order('created_at', { ascending: false });
 
-  // 合併並排序
+  // 載入試用資訊（profiles）
+  const { data: profile } = await _sb.from('profiles')
+    .select('trial_expires_at, referred_by, referral_code')
+    .eq('id', currentUser.id)
+    .single();
+
+  // 消費紀錄
   const debitItems = (genLogs || []).map(l => ({
     type: 'debit',
     label: `${STYLE_LABELS[l.style]||l.style||'—'} × ${ROOM_LABELS[l.room_type]||l.room_type||'—'}`,
@@ -286,6 +292,7 @@ async function loadCreditsHistory(){
     date: l.created_at
   }));
 
+  // 付費儲值紀錄
   const creditItems = (orders || []).map(o => ({
     type: 'credit',
     label: PLAN_LABELS[o.plan_type] || o.plan_type,
@@ -296,7 +303,22 @@ async function loadCreditsHistory(){
     date: o.paid_at || o.created_at
   }));
 
-  allCreditsHistory = [...debitItems, ...creditItems]
+  // 試用核准點數（若有 trial_expires_at 表示曾核准試用）
+  const trialItems = [];
+  if(profile?.trial_expires_at){
+    const trialStart = new Date(new Date(profile.trial_expires_at).getTime() - 7*24*60*60*1000);
+    trialItems.push({
+      type: 'credit',
+      label: '試用核准',
+      badge: 'trial',
+      badgeText: '試用',
+      points: 60,
+      amount: null,
+      date: trialStart.toISOString()
+    });
+  }
+
+  allCreditsHistory = [...debitItems, ...creditItems, ...trialItems]
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   renderCreditsTable(allCreditsHistory);
