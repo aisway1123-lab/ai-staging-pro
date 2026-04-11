@@ -601,9 +601,15 @@ async function approveUser(userId, email){
 
 async function rejectUser(userId, email){
   if(!confirm(`確定拒絕 ${email} 的申請？`)) return;
-  await _sb.from('profiles').update({ role: 'free' }).eq('id', userId);
+  const resp = await fetch('/api/admin-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'rejectTrial', adminId: adminUser.id, userId })
+  });
+  const result = await resp.json();
+  if(!result.success){ showToast('操作失敗：' + (result.error || '未知錯誤')); return; }
   showToast(`已拒絕 ${email}`);
-  loadStats(); loadOverviewPending(); loadPending();
+  loadStats(); loadOverviewPending(); loadPending(); loadMembers();
 }
 
 // ── 生成紀錄 ──
