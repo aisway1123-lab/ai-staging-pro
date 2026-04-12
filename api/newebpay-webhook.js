@@ -1,5 +1,6 @@
 // api/newebpay-webhook.js
-// 接收藍新付款結果通知，自動給點（使用原子 RPC 防止並發問題）
+// 接收藍新付款結果通知，自動給點
+// V7：加點改寫入 credit_logs，不再呼叫 add_credits RPC
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -13,6 +14,16 @@ function aesDecrypt(encryptedData, key, iv) {
   let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
   return decrypted.replace(/[\x00-\x1F\x7F]/g, '').trim();
+}
+
+// 計算訂閱方案下次重置日
+function getSubscriptionExpiresAt(billing) {
+  const now = new Date();
+  if (billing === 'yearly') {
+    return new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString();
+  }
+  // monthly：加一個月
+  return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString();
 }
 
 export default async function handler(req, res) {
@@ -61,61 +72,98 @@ export default async function handler(req, res) {
     }
 
     // 更新訂單狀態（先更新，防止 Webhook 重複觸發）
-    const { error: updateErr } = await supabase.from('orders').update({
-      status:            'paid',
-      payment_method:    paymentType,
-      newebpay_trade_no: tradeNo,
-      paid_at:           new Date().toISOString()
-    }).eq('order_no', orderNo).eq('status', 'pending'); // 雙重確認 pending
+    const { error: updateErr } = await supabase
+      .from('orders')
+      .update({
+        status:            'paid',
+        payment_method:    paymentType,
+        newebpay_trade_no: tradeNo,
+        paid_at:           new Date().toISOString()
+      })
+      .eq('order_no', orderNo)
+      .eq('status', 'pending'); // 雙重確認 pending
 
     if (updateErr) {
       console.error('訂單更新失敗，可能已處理:', orderNo);
       return res.status(200).send('OK');
     }
 
-    // ── 原子加點（防止並發覆蓋）──
-    const { data: addResult, error: addErr } = await supabase
-      .rpc('add_credits', {
-        p_user_id: order.user_id,
-        p_amount:  order.credits
-      });
+    const isSubscription = order.plan_type.includes('monthly') || order.plan_type.includes('yearly');
+    const isPack         = order.plan_type.startsWith('credits_');
 
-    if (addErr) {
-      console.error('加點失敗:', addErr);
-    } else {
-      console.log(`訂單 ${orderNo} 付款成功，加 ${order.credits} 點，剩餘 ${addResult?.new_credits} 點`);
+    // ── 點數包：寫入 credit_logs，type=pack，90天到期 ──
+    if (isPack) {
+      const packExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error: logErr } = await supabase
+        .from('credit_logs')
+        .insert({
+          user_id:    order.user_id,
+          type:       'pack',
+          amount:     order.credits,
+          expires_at: packExpiresAt,
+          source_id:  orderNo,
+          note:       `點數包購買：${order.plan_type}`
+        });
+
+      if (logErr) {
+        console.error('點數包加點失敗:', logErr);
+      } else {
+        console.log(`訂單 ${orderNo} 點數包付款成功，加 ${order.credits} 點，到期 ${packExpiresAt}`);
+      }
     }
 
-    // 訂閱方案 → 更新角色與方案資訊
-    if (order.plan_type.includes('monthly') || order.plan_type.includes('yearly')) {
-      const planLevel   = order.plan_type.includes('mini') ? 'mini' : 'standard';
-      const planBilling = order.plan_type.includes('monthly') ? 'monthly' : 'yearly';
-      const storageDays = planLevel === 'standard' ? 60 : 30;
+    // ── 訂閱方案：寫入 credit_logs，type=subscription，到期日為下次重置日 ──
+    if (isSubscription) {
+      const planLevel      = order.plan_type.includes('mini') ? 'mini' : 'standard';
+      const planBilling    = order.plan_type.includes('monthly') ? 'monthly' : 'yearly';
+      const storageDays    = planLevel === 'standard' ? 60 : 30;
+      const subscriptionExpiresAt = getSubscriptionExpiresAt(planBilling);
 
-      await supabase.from('profiles').update({
-        role:             'subscriber',
-        plan_level:       planLevel,
-        plan_billing:     planBilling,
-        storage_days:     storageDays,
-        plan_started_at:  new Date().toISOString(),
-        updated_at:       new Date().toISOString()
-      }).eq('id', order.user_id);
+      // 更新 profiles 方案資訊
+      await supabase
+        .from('profiles')
+        .update({
+          role:            'subscriber',
+          plan_level:      planLevel,
+          plan_billing:    planBilling,
+          storage_days:    storageDays,
+          plan_started_at: new Date().toISOString(),
+          updated_at:      new Date().toISOString()
+        })
+        .eq('id', order.user_id);
 
-      console.log(`方案更新：${order.user_id} → ${planLevel} ${planBilling}，保存 ${storageDays} 天`);
+      // 寫入 credit_logs
+      const { error: logErr } = await supabase
+        .from('credit_logs')
+        .insert({
+          user_id:    order.user_id,
+          type:       'subscription',
+          amount:     order.credits,
+          expires_at: subscriptionExpiresAt,
+          source_id:  orderNo,
+          note:       `訂閱方案：${order.plan_type}`
+        });
+
+      if (logErr) {
+        console.error('訂閱加點失敗:', logErr);
+      } else {
+        console.log(`訂單 ${orderNo} 訂閱付款成功，加 ${order.credits} 點，重置日 ${subscriptionExpiresAt}`);
+      }
     }
 
-    // ── 推薦獎勵（原子加點）──
-    const { data: profile } = await supabase
+    // ── 推薦獎勵：寫入 credit_logs，type=referral，90天到期 ──
+    const { data: userProfile } = await supabase
       .from('profiles')
       .select('referred_by')
       .eq('id', order.user_id)
       .single();
 
-    if (profile?.referred_by) {
+    if (userProfile?.referred_by) {
       const { data: referrer } = await supabase
         .from('profiles')
         .select('id')
-        .eq('referral_code', profile.referred_by)
+        .eq('referral_code', userProfile.referred_by)
         .single();
 
       if (referrer) {
@@ -128,20 +176,37 @@ export default async function handler(req, res) {
           .maybeSingle();
 
         if (!existing) {
-          // 原子加 200 點給推薦人
-          await supabase.rpc('add_credits', {
-            p_user_id: referrer.id,
-            p_amount:  200
-          });
+          // 先寫 referral_logs 取得 id
+          const { data: referralLog, error: referralLogErr } = await supabase
+            .from('referral_logs')
+            .insert({
+              referrer_id: referrer.id,
+              referred_id: order.user_id,
+              status:      'rewarded'
+            })
+            .select('id')
+            .single();
 
-          // 記錄推薦獎勵
-          await supabase.from('referral_logs').insert({
-            referrer_id: referrer.id,
-            referred_id: order.user_id,
-            status:      'rewarded'
-          });
+          if (!referralLogErr && referralLog) {
+            const referralExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-          console.log(`推薦獎勵：給 ${referrer.id} 加 200 點`);
+            const { error: logErr } = await supabase
+              .from('credit_logs')
+              .insert({
+                user_id:    referrer.id,
+                type:       'referral',
+                amount:     200,
+                expires_at: referralExpiresAt,
+                source_id:  referralLog.id,
+                note:       `推薦獎勵（被推薦人：${order.user_id}）`
+              });
+
+            if (logErr) {
+              console.error('推薦獎勵加點失敗:', logErr);
+            } else {
+              console.log(`推薦獎勵：給 ${referrer.id} 加 200 點，到期 ${referralExpiresAt}`);
+            }
+          }
         }
       }
     }
