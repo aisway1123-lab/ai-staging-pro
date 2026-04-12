@@ -31,16 +31,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ── 調整點數 ──
+    // ── 調整點數（V7：寫入 credit_logs，type=promo，永不到期）──
     if (action === 'updateCredits') {
-      const { userId, newCredits } = req.body;
-      if (!userId || newCredits === undefined) return res.status(400).json({ error: '缺少參數' });
+      const { userId, adjustAmount, note } = req.body;
+      if (!userId || adjustAmount === undefined) return res.status(400).json({ error: '缺少參數' });
       if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以調整點數' });
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({ credits: newCredits, updated_at: new Date().toISOString() })
-        .eq('id', userId);
-      if (updateErr) return res.status(500).json({ error: '更新失敗：' + updateErr.message });
+      if (adjustAmount === 0) return res.status(400).json({ error: '調整量不能為 0' });
+
+      const { error: logErr } = await supabase
+        .from('credit_logs')
+        .insert({
+          user_id:    userId,
+          type:       'promo',
+          amount:     adjustAmount,   // 正數為加點，負數為扣點
+          expires_at: null,           // 後台手動調整永不到期
+          note:       note || `後台手動調整（admin: ${adminId}）`
+        });
+
+      if (logErr) return res.status(500).json({ error: '調整失敗：' + logErr.message });
       return res.status(200).json({ success: true });
     }
 
@@ -72,35 +80,40 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     }
 
-    // ── 核准試用申請 ──
+    // ── 核准試用申請（V7：寫入 credit_logs，type=trial，7天到期）──
     if (action === 'approveTrial') {
       const { userId, email } = req.body;
       if (!userId || !email) return res.status(400).json({ error: '缺少參數' });
-
-      // 只有 admin 可以核准
       if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以核准' });
 
-      // 更新 role 和 trial_expires_at
+      const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // 更新 role 和 trial_expires_at（保留 trial_expires_at 供現有前台邏輯使用）
       const { error: updateErr } = await supabase
         .from('profiles')
         .update({
           role:             'trial',
-          trial_expires_at: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
+          trial_expires_at: trialExpiresAt,
           updated_at:       new Date().toISOString()
         })
         .eq('id', userId);
 
       if (updateErr) return res.status(500).json({ error: '更新失敗：' + updateErr.message });
 
-      // 用 atomic RPC 加 60 點（不直接覆蓋，防止清掉既有點數）
-      const { error: creditsErr } = await supabase.rpc('add_credits', {
-        p_user_id: userId,
-        p_amount:  60
-      });
+      // V7：寫入 credit_logs trial 類型紀錄
+      const { error: logErr } = await supabase
+        .from('credit_logs')
+        .insert({
+          user_id:    userId,
+          type:       'trial',
+          amount:     60,
+          expires_at: trialExpiresAt,
+          note:       `試用核准（admin: ${adminId}）`
+        });
 
-      if (creditsErr) return res.status(500).json({ error: '加點失敗：' + creditsErr.message });
+      if (logErr) return res.status(500).json({ error: '加點失敗：' + logErr.message });
 
-      console.log(`核准試用：${email}，加 60 點，到期 ${new Date(Date.now() + 7*24*60*60*1000).toISOString()}`);
+      console.log(`核准試用：${email}，加 60 點，到期 ${trialExpiresAt}`);
       return res.status(200).json({ success: true });
     }
 
@@ -113,13 +126,25 @@ export default async function handler(req, res) {
       return res.status(200).json({ profiles: profiles || [], logCount: logCount || 0 });
     }
 
-    // ── 取得所有會員 ──
+    // ── 取得所有會員（V7：credits 改用 get_available_credits 即時計算）──
     if (action === 'getMembers') {
-      const { data } = await supabase
+      const { data: members } = await supabase
         .from('profiles')
-        .select('id, email, role, credits, total_used, created_at, referral_code, referred_by, trial_expires_at, plan_level, plan_billing, storage_days, plan_started_at')
+        .select('id, email, role, total_used, created_at, referral_code, referred_by, trial_expires_at, plan_level, plan_billing, storage_days, plan_started_at')
         .order('created_at', { ascending: false });
-      return res.status(200).json({ members: data || [] });
+
+      if (!members || members.length === 0) return res.status(200).json({ members: [] });
+
+      // 逐一取得有效點數（用戶數少時可接受，日後可改 batch 查詢）
+      const membersWithCredits = await Promise.all(
+        members.map(async (m) => {
+          const { data: creditsData } = await supabase
+            .rpc('get_available_credits', { p_user_id: m.id });
+          return { ...m, credits: creditsData ?? 0 };
+        })
+      );
+
+      return res.status(200).json({ members: membersWithCredits });
     }
 
     // ── 取得試用申請 ──
@@ -142,7 +167,6 @@ export default async function handler(req, res) {
 
       if (!logs || logs.length === 0) return res.status(200).json({ logs: [] });
 
-      // 取得所有相關用戶的 email
       const userIds = [...new Set(logs.map(l => l.user_id))];
       const { data: profiles } = await supabase
         .from('profiles')
