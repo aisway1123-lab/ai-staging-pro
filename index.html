@@ -873,14 +873,22 @@ let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=n
 let generatedVideoUrl=null,generatedImageUrl=null;
 
 async function initAuth(){
-  const{data:{session}}=await _sb.auth.getSession();
-  if(session?.user)await onLogin(session.user);
+  // 先設定監聽器，再取得 session，避免 race condition 導致 onLogin 呼叫兩次
+  let initialSessionHandled=false;
   _sb.auth.onAuthStateChange(async(event,session)=>{
     if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED')&&session?.user){
-      await onLogin(session.user);closeAuth();
+      await onLogin(session.user);
+      if(!initialSessionHandled)closeAuth();
+      initialSessionHandled=true;
     }
     else if(event==='SIGNED_OUT'){onLogout();}
   });
+  // 取得當前 session，若已登入且監聽器尚未處理則手動觸發
+  const{data:{session}}=await _sb.auth.getSession();
+  if(session?.user&&!initialSessionHandled){
+    await onLogin(session.user);
+    initialSessionHandled=true;
+  }
 }
 async function onLogin(user){
   currentUser=user;
@@ -963,14 +971,23 @@ async function doLogin(){
     if(error)throw error;
   }
   catch(e){
+    const msg=e.message||'';
     // 未驗證信箱
-    if(e.message&&(e.message.includes('Email not confirmed')||e.message.includes('email_not_confirmed'))){
+    if(msg.includes('Email not confirmed')||msg.includes('email_not_confirmed')){
       const el=document.getElementById('auMsg');
       el.className='au-msg error';
       el.innerHTML='請先至信箱點擊驗證連結以啟用帳號。<br><a href="#" onclick="resendConfirmEmail(event)" style="color:#C04B3A;text-decoration:underline;font-size:0.72rem;">重新發送驗證信</a>';
       window._pendingConfirmEmail=email;
+    } else if(msg.includes('Invalid login credentials')||msg.includes('invalid_credentials')||msg.includes('Wrong password')){
+      showAuMsg('帳號或密碼錯誤，請確認後再試');
+    } else if(msg.includes('User not found')||msg.includes('user_not_found')){
+      showAuMsg('找不到此帳號，請確認電子郵件是否正確');
+    } else if(msg.includes('Too many requests')||msg.includes('over_email_send_rate_limit')){
+      showAuMsg('嘗試次數過多，請稍後再試');
+    } else if(msg.includes('Network')||msg.includes('fetch')){
+      showAuMsg('網路連線異常，請確認網路後再試');
     } else {
-      showAuMsg(e.message||'帳號或密碼錯誤');
+      showAuMsg('登入失敗，請稍後再試');
     }
   }
   finally{setAuLoading('loginBtn',false,'登入');}
@@ -1047,7 +1064,7 @@ async function doResetPassword(){
   const email=document.getElementById('loginEmail').value.trim();
   const target=email||prompt('請輸入您的電子郵件：');if(!target)return;
   const{error}=await _sb.auth.resetPasswordForEmail(target,{redirectTo:window.location.origin});
-  if(error)showAuMsg(error.message);else showAuMsg('重設連結已發送，請檢查信箱。','success');
+  if(error){const m=error.message||'';showAuMsg(m.includes('rate')?'發送太頻繁，請稍後再試':'重設失敗，請確認電子郵件是否正確');}else showAuMsg('重設連結已發送，請檢查信箱。','success');
 }
 async function deductCredits(cost){
   if(currentProfile?.role==='admin')return true;
@@ -1245,9 +1262,21 @@ async function startGeneration(){
   if(!currentUser){showToast('請先登入以使用生成功能');openAuth('login');return;}
   const userCredits=currentProfile?.credits??0;const userRole=currentProfile?.role??'';
   if(userRole!=='admin'&&userCredits<20){
-    showToast('點數不足！即將前往購買頁面…');
-    setTimeout(()=>window.location.href='/pricing.html', 1500);
-    return;
+    // 重新從後端確認最新點數，避免快取錯誤導致誤判
+    try{
+      const{data:latestCredits}=await _sb.rpc('get_available_credits',{p_user_id:currentUser.id});
+      if(latestCredits!==null)currentProfile.credits=latestCredits;
+      if(latestCredits>=20){/* 點數其實夠，繼續往下 */}
+      else{
+        showToast('點數不足！即將前往購買頁面…');
+        setTimeout(()=>window.location.href='/pricing.html', 1500);
+        return;
+      }
+    }catch(e){
+      showToast('點數不足！即將前往購買頁面…');
+      setTimeout(()=>window.location.href='/pricing.html', 1500);
+      return;
+    }
   }
   if(userRole==='trial_pending'){showToast('您的試用申請審核中，請稍候通知');return;}
   if(userRole==='trial'&&currentProfile?.trial_expires_at){
