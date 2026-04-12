@@ -1306,16 +1306,25 @@ async function startGeneration(){
       }
     },600);
   }catch(err){
-    await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
+    // 重置 is_generating，重試最多 3 次確保成功
+    let resetOk=false;
+    for(let i=0;i<3;i++){
+      try{
+        const{error:resetErr}=await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
+        if(!resetErr){resetOk=true;break;}
+      }catch(e){}
+      await new Promise(r=>setTimeout(r,1000));
+    }
+    if(!resetOk)console.warn('is_generating 重置失敗，請手動重整頁面');
     document.getElementById('progressWrap').classList.remove('visible');
     document.getElementById('errorBox').classList.add('visible');
     const errMsg=err?.message||'未知錯誤';
-    const isRetryable=errMsg.includes('繁忙')||errMsg.includes('超時')||errMsg.includes('retry');
+    const isRetryable=errMsg.includes('繁忙')||errMsg.includes('超時')||errMsg.includes('retry')||errMsg.includes('503');
     document.getElementById('errorBody').textContent=`生成失敗，點數未扣除。
 
 錯誤原因：${errMsg}
 
-${isRetryable?'服務暫時繁忙，請稍候 1-2 分鐘後重試。':'請確認圖片格式（JPG/PNG）並重新上傳，或稍後再試。'}如持續發生請聯繫 LINE 客服：@536vcequ`;
+${isRetryable?'fal.ai 服務暫時繁忙，請稍候 1-2 分鐘後直接再按生成按鈕重試。':'請確認圖片格式（JPG/PNG）並重新上傳，或稍後再試。'}如持續發生請聯繫 LINE 客服：@536vcequ`;
     const genBtn=document.getElementById('genBtn');
     genBtn.disabled=false;
     genBtn.textContent='開始生成影片｜消耗 20 點';
