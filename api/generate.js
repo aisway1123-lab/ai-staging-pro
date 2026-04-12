@@ -107,6 +107,46 @@ export default async function handler(req, res) {
     const NEGATIVE_PROMPT = "camera movement, zoom, pan, tilt, layout change, structural change, new windows, perspective shift, object floating, object sliding horizontally, ghosting, double exposure, distortion, flickering edges, wall wobbling, room shrinking, camera shake, floor plan change, scaling animation, growing objects, shrinking objects, sliding walls, motion blur, flicker, jitter, frame inconsistency, people, animals, text, watermark, logo, fantasy, surreal, cartoon, stylized";
 
     try {
+      // base64 data URL 需要先上傳到 fal.ai storage 取得 https URL
+      // Kling Video queue API 不接受 base64，只接受公開的 https URL
+      async function uploadBase64ToFal(base64DataUrl) {
+        const matches = base64DataUrl.match(/^data:(.+);base64,(.+)$/);
+        if (!matches) throw new Error('無效的 base64 格式');
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+        const buffer = Buffer.from(base64Data, 'base64');
+        const ext = mimeType.split('/')[1] || 'png';
+        const filename = `upload_${Date.now()}.${ext}`;
+
+        // 取得 fal.ai presigned upload URL
+        const initRes = await fetch('https://rest.alpha.fal.ai/storage/upload/initiate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Key ${FAL_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ file_name: filename, content_type: mimeType })
+        });
+        if (!initRes.ok) throw new Error('無法取得上傳 URL');
+        const { upload_url, file_url } = await initRes.json();
+
+        // 上傳圖片
+        const uploadRes = await fetch(upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': mimeType },
+          body: buffer
+        });
+        if (!uploadRes.ok) throw new Error('圖片上傳失敗');
+        return file_url;
+      }
+
+      // 若 startImageUrl 是 base64，先上傳取得 https URL
+      let finalStartUrl = startImageUrl;
+      if (startImageUrl.startsWith('data:')) {
+        finalStartUrl = await uploadBase64ToFal(startImageUrl);
+        console.log('startImage 上傳完成:', finalStartUrl);
+      }
+
       // 使用 queue.fal.run 非同步提交，立即取得 request_id，不等待生成結果
       // fal.run 是同步等待（會超時），queue.fal.run 是非同步排隊（立即回傳）
       const submitRes = await fetch('https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video', {
@@ -114,7 +154,7 @@ export default async function handler(req, res) {
         headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: `Interior staging transformation. Static camera, no camera movement. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. New furniture enters smoothly. High realism, professional real estate visualization.`,
-          start_image_url: startImageUrl,
+          start_image_url: finalStartUrl,
           end_image_url: endImageUrl,
           duration: "5",
           negative_prompt: NEGATIVE_PROMPT
