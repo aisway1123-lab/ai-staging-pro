@@ -43,12 +43,21 @@ export default async function handler(req, res) {
         .insert({
           user_id:    userId,
           type:       'promo',
-          amount:     adjustAmount,   // 正數為加點，負數為扣點
-          expires_at: null,           // 後台手動調整永不到期
+          amount:     adjustAmount,
+          expires_at: null,
           note:       note || `後台手動調整（admin: ${adminId}）`
         });
 
       if (logErr) return res.status(500).json({ error: '調整失敗：' + logErr.message });
+
+      // 同步更新 profiles.credits 快取
+      const { data: newCredits } = await supabase
+        .rpc('get_available_credits', { p_user_id: userId });
+      await supabase
+        .from('profiles')
+        .update({ credits: newCredits ?? 0, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
       return res.status(200).json({ success: true });
     }
 
@@ -112,6 +121,14 @@ export default async function handler(req, res) {
         });
 
       if (logErr) return res.status(500).json({ error: '加點失敗：' + logErr.message });
+
+      // 同步更新 profiles.credits 快取
+      const { data: newCredits } = await supabase
+        .rpc('get_available_credits', { p_user_id: userId });
+      await supabase
+        .from('profiles')
+        .update({ credits: newCredits ?? 0, updated_at: new Date().toISOString() })
+        .eq('id', userId);
 
       console.log(`核准試用：${email}，加 60 點，到期 ${trialExpiresAt}`);
       return res.status(200).json({ success: true });
