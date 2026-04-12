@@ -134,12 +134,30 @@ export default async function handler(req, res) {
 
     // ── 取得生成紀錄 ──
     if (action === 'getLogs') {
-      const { data } = await supabase
+      const { data: logs } = await supabase
         .from('generation_logs')
-        .select('id, user_id, type, style, room_type, credits_used, created_at, profiles(email)')
+        .select('id, user_id, type, style, room_type, credits_used, created_at')
         .order('created_at', { ascending: false })
         .limit(100);
-      return res.status(200).json({ logs: data || [] });
+
+      if (!logs || logs.length === 0) return res.status(200).json({ logs: [] });
+
+      // 取得所有相關用戶的 email
+      const userIds = [...new Set(logs.map(l => l.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds);
+
+      const emailMap = {};
+      (profiles || []).forEach(p => { emailMap[p.id] = p.email; });
+
+      const logsWithEmail = logs.map(l => ({
+        ...l,
+        profiles: { email: emailMap[l.user_id] || null }
+      }));
+
+      return res.status(200).json({ logs: logsWithEmail });
     }
 
     return res.status(400).json({ error: '無效的 action' });
