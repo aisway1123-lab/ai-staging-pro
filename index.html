@@ -885,13 +885,7 @@ async function initAuth(){
 async function onLogin(user){
   currentUser=user;
   const{data}=await _sb.from('profiles').select('*').eq('id',user.id).single();
-  currentProfile=data;
-  // V7：從 credit_logs 即時計算有效點數，取代 profiles.credits 快取
-  if(currentProfile){
-    const{data:credits}=await _sb.rpc('get_available_credits',{p_user_id:user.id});
-    currentProfile.credits=credits??0;
-  }
-  updateHeaderUI();
+  currentProfile=data;updateHeaderUI();
 }
 function onLogout(){currentUser=null;currentProfile=null;updateHeaderUI();}
 function updateHeaderUI(){
@@ -1049,10 +1043,9 @@ async function doResetPassword(){
 }
 async function deductCredits(cost){
   if(currentProfile?.role==='admin')return true;
-  const r=await fetch('/api/deduct-credits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:currentUser.id,cost})});
-  const data=await r.json();
-  if(!r.ok||!data.success)return false;
-  if(currentProfile&&data.remaining!==null)currentProfile.credits=data.remaining;
+  const{data,error}=await _sb.rpc('deduct_credits',{p_user_id:currentUser.id,p_cost:cost});
+  if(error||!data?.success)return false;
+  if(currentProfile)currentProfile.credits=data.remaining;
   updateHeaderUI();return true;
 }
 
@@ -1253,14 +1246,25 @@ async function startGeneration(){
     showToast('試用期已到期，請選擇方案繼續使用');return;
   }
 }
-  const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
-  if(genCheck?.is_generating){showToast('您有一個生成任務正在進行中，請稍候再試');return;}
-  await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
-  document.getElementById('genBtn').disabled=true;
+  // 先鎖定按鈕並顯示進度條，讓用戶知道有反應
+  const genBtn=document.getElementById('genBtn');
+  genBtn.disabled=true;
+  genBtn.textContent='生成中…';
   document.getElementById('progressWrap').classList.add('visible');
   document.getElementById('resultSection').style.display='none';
   document.getElementById('errorBox').classList.remove('visible');
+  setProgress('準備中…',3);
+
+  const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
+  if(genCheck?.is_generating){
+    showToast('您有一個生成任務正在進行中，請稍候再試');
+    genBtn.disabled=false;genBtn.textContent='開始生成影片｜消耗 20 點';
+    document.getElementById('progressWrap').classList.remove('visible');
+    return;
+  }
+  await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
   try{
+    setProgress('上傳圖片中…',5);
     uploadedImageUrl=await uploadImageToFal(uploadedImageBase64);setProgress('生成裝潢效果圖…',12);
     generatedImageUrl=await generateStagedImage(uploadedImageUrl,selectedStyle,selectedRoom);
     if(!generatedImageUrl)throw new Error('圖生圖未回傳結果，請重試');setProgress('生成動態影片…',52);
@@ -1275,7 +1279,7 @@ async function startGeneration(){
       const sName=STYLE_PROMPTS[selectedStyle].label;const rName=ROOM_NAMES[selectedRoom];
       document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
       document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
-      document.getElementById('genBtn').disabled=false;
+      const btn=document.getElementById('genBtn');btn.disabled=false;btn.textContent='開始生成影片｜消耗 20 點';
       showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
       // ── 背景存檔到 Supabase Storage ──
       if(currentUser){
@@ -1296,9 +1300,16 @@ async function startGeneration(){
     await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
     document.getElementById('progressWrap').classList.remove('visible');
     document.getElementById('errorBox').classList.add('visible');
-    document.getElementById('errorBox').classList.add('visible');
-    document.getElementById('errorBody').textContent=`生成失敗，點數未扣除。\n\n可能原因：圖片格式不支援、網路不穩定或服務暫時繁忙。\n請稍後再試，或更換圖片後重新生成。如持續發生請聯繫 LINE 客服：@536vcequ`;
-    document.getElementById('genBtn').disabled=false;
+    const errMsg=err?.message||'未知錯誤';
+    const isRetryable=errMsg.includes('繁忙')||errMsg.includes('超時')||errMsg.includes('retry');
+    document.getElementById('errorBody').textContent=`生成失敗，點數未扣除。
+
+錯誤原因：${errMsg}
+
+${isRetryable?'服務暫時繁忙，請稍候 1-2 分鐘後重試。':'請確認圖片格式（JPG/PNG）並重新上傳，或稍後再試。'}如持續發生請聯繫 LINE 客服：@536vcequ`;
+    const genBtn=document.getElementById('genBtn');
+    genBtn.disabled=false;
+    genBtn.textContent='開始生成影片｜消耗 20 點';
     console.error('Generation error:',err);
   }
 }
