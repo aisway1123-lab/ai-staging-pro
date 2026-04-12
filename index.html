@@ -886,8 +886,14 @@ async function initAuth(){
 }
 async function onLogin(user){
   currentUser=user;
-  const{data}=await _sb.from('profiles').select('*').eq('id',user.id).single();
-  currentProfile=data;
+  // 重試最多 3 次，處理 auth lock 競爭導致查詢失敗的情況
+  let profileData=null;
+  for(let i=0;i<3;i++){
+    const{data,error}=await _sb.from('profiles').select('*').eq('id',user.id).single();
+    if(data){profileData=data;break;}
+    if(i<2)await new Promise(r=>setTimeout(r,500));
+  }
+  currentProfile=profileData;
   // V7：優先用 get_available_credits 即時計算，失敗則 fallback 用 profiles.credits
   if(currentProfile){
     try{
