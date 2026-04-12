@@ -292,8 +292,10 @@ td.primary{color:var(--text);}
     <div class="page-title">服務狀態</div>
     <div class="page-sub">所有使用中平台的方案、額度與注意事項</div>
   </div>
+  <div id="servicesContainer"></div>
+</div>
 
-  <script>
+<script>
   const SERVICES = [
     {
       category: '核心基礎設施',
@@ -385,10 +387,6 @@ td.primary{color:var(--text);}
     `).join('');
   }
   </script>
-
-  <div id="servicesContainer"></div>
-
-</div>
 <div class="modal-overlay" id="creditsModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('creditsModal')">✕</button>
