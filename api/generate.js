@@ -186,12 +186,14 @@ export default async function handler(req, res) {
       // queue 的狀態查詢端點
       const statusUrl = `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}/status`;
       const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
-      if (!statusRes.ok) return res.status(200).json({ status: 'IN_PROGRESS' });
+      if (!statusRes.ok) {
+        const errText = await statusRes.text();
+        console.log('pollVideoStatus - HTTP error:', statusRes.status, errText.slice(0,300));
+        return res.status(200).json({ status: 'IN_PROGRESS' });
+      }
       const status = await statusRes.json();
-
-      // 大小寫都接受，REST API 可能回傳 completed 或 COMPLETED
+      console.log('pollVideoStatus - full status JSON:', JSON.stringify(status));
       const statusVal = status.status?.toUpperCase();
-      console.log('pollVideoStatus - queue status:', status.status, '| statusVal:', statusVal);
 
       if (statusVal === 'COMPLETED') {
         // queue REST API 結果端點
