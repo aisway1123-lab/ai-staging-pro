@@ -107,17 +107,33 @@ export default async function handler(req, res) {
     const NEGATIVE_PROMPT = "camera movement, zoom, pan, tilt, layout change, structural change, new windows, perspective shift, object floating, object sliding horizontally, ghosting, double exposure, distortion, flickering edges, wall wobbling, room shrinking, camera shake, floor plan change, scaling animation, growing objects, shrinking objects, sliding walls, motion blur, flicker, jitter, frame inconsistency, people, animals, text, watermark, logo, fantasy, surreal, cartoon, stylized";
 
     try {
-      const submitRes = await fetch('https://fal.run/fal-ai/kling-video/o1/standard/image-to-video', {
-        method: 'POST',
-        headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Interior staging transformation. Static camera, no camera movement. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. New furniture enters smoothly. High realism, professional real estate visualization.`,
-          start_image_url: startImageUrl,
-          end_image_url: endImageUrl,
-          duration: "5",
-          negative_prompt: NEGATIVE_PROMPT
-        })
-      });
+      // 設定 50 秒 timeout，確保在 Vercel 60 秒限制前主動回傳錯誤
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 50000);
+
+      let submitRes;
+      try {
+        submitRes = await fetch('https://fal.run/fal-ai/kling-video/o1/standard/image-to-video', {
+          method: 'POST',
+          headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Interior staging transformation. Static camera, no camera movement. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. New furniture enters smoothly. High realism, professional real estate visualization.`,
+            start_image_url: startImageUrl,
+            end_image_url: endImageUrl,
+            duration: "5",
+            negative_prompt: NEGATIVE_PROMPT
+          }),
+          signal: controller.signal
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        if (fetchErr.name === 'AbortError') {
+          return res.status(503).json({ error: '影片服務暫時繁忙，請稍後重試', retryable: true });
+        }
+        throw fetchErr;
+      }
+      clearTimeout(timeoutId);
+
       if (!submitRes.ok) {
         const err = await submitRes.text();
         return res.status(500).json({ error: `影片提交失敗：${submitRes.status}` });
