@@ -107,40 +107,31 @@ export default async function handler(req, res) {
     const NEGATIVE_PROMPT = "camera movement, zoom, pan, tilt, layout change, structural change, new windows, perspective shift, object floating, object sliding horizontally, ghosting, double exposure, distortion, flickering edges, wall wobbling, room shrinking, camera shake, floor plan change, scaling animation, growing objects, shrinking objects, sliding walls, motion blur, flicker, jitter, frame inconsistency, people, animals, text, watermark, logo, fantasy, surreal, cartoon, stylized";
 
     try {
-      // 設定 50 秒 timeout，確保在 Vercel 60 秒限制前主動回傳錯誤
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 50000);
-
-      let submitRes;
-      try {
-        submitRes = await fetch('https://fal.run/fal-ai/kling-video/o1/standard/image-to-video', {
-          method: 'POST',
-          headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: `Interior staging transformation. Static camera, no camera movement. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. New furniture enters smoothly. High realism, professional real estate visualization.`,
-            start_image_url: startImageUrl,
-            end_image_url: endImageUrl,
-            duration: "5",
-            negative_prompt: NEGATIVE_PROMPT
-          }),
-          signal: controller.signal
-        });
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        if (fetchErr.name === 'AbortError') {
-          return res.status(503).json({ error: '影片服務暫時繁忙，請稍後重試', retryable: true });
-        }
-        throw fetchErr;
-      }
-      clearTimeout(timeoutId);
+      // 使用 queue.fal.run 非同步提交，立即取得 request_id，不等待生成結果
+      // fal.run 是同步等待（會超時），queue.fal.run 是非同步排隊（立即回傳）
+      const submitRes = await fetch('https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video', {
+        method: 'POST',
+        headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Interior staging transformation. Static camera, no camera movement. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. New furniture enters smoothly. High realism, professional real estate visualization.`,
+          start_image_url: startImageUrl,
+          end_image_url: endImageUrl,
+          duration: "5",
+          negative_prompt: NEGATIVE_PROMPT
+        })
+      });
 
       if (!submitRes.ok) {
-        const err = await submitRes.text();
+        const errText = await submitRes.text();
+        console.error('影片提交失敗:', submitRes.status, errText);
         return res.status(500).json({ error: `影片提交失敗：${submitRes.status}` });
       }
       const result = await submitRes.json();
+      // queue API 回傳 request_id
       if (result.request_id) return res.status(200).json({ requestId: result.request_id });
-      return res.status(200).json({ videoUrl: result.video?.url || result.data?.video?.url });
+      // 極少數情況直接完成
+      if (result.video?.url) return res.status(200).json({ videoUrl: result.video.url });
+      return res.status(500).json({ error: '影片提交未取得 request_id' });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -152,13 +143,15 @@ export default async function handler(req, res) {
     if (!requestId) return res.status(400).json({ error: '缺少參數' });
 
     try {
-      const statusUrl = `https://fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}/status`;
+      // queue 的狀態查詢端點
+      const statusUrl = `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}/status`;
       const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
       if (!statusRes.ok) return res.status(200).json({ status: 'IN_PROGRESS' });
       const status = await statusRes.json();
 
       if (status.status === 'COMPLETED') {
-        const resultRes = await fetch(`https://fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
+        // queue 的結果取得端點
+        const resultRes = await fetch(`https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
         const resultData = await resultRes.json();
         const videoUrl = resultData.video?.url || resultData.data?.video?.url || null;
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
