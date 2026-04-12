@@ -74,16 +74,19 @@ export default async function handler(req, res) {
     }
 
     // ── 更新 generation_logs ──
+    console.log('save-generation: savedImageUrl=', !!savedImageUrl, 'savedVideoUrl=', !!savedVideoUrl, 'logId=', logId);
     if (logId && (savedImageUrl || savedVideoUrl)) {
-      await supabase.from('generation_logs')
+      const { error: updateErr } = await supabase.from('generation_logs')
         .update({
           image_url:  savedImageUrl,
           video_url:  savedVideoUrl,
           expires_at: expires.toISOString()
         })
         .eq('id', logId);
+      if (updateErr) console.error('generation_logs UPDATE error:', updateErr.message);
+      else console.log('generation_logs UPDATE success');
     } else if (savedImageUrl || savedVideoUrl) {
-      await supabase.from('generation_logs').insert({
+      const { error: insertErr } = await supabase.from('generation_logs').insert({
         user_id:      userId,
         type:         videoUrl ? 'video' : 'image',
         style:        style    || null,
@@ -93,6 +96,10 @@ export default async function handler(req, res) {
         video_url:    savedVideoUrl,
         expires_at:   expires.toISOString()
       });
+      if (insertErr) console.error('generation_logs INSERT error:', insertErr.message);
+      else console.log('generation_logs INSERT success');
+    } else {
+      console.warn('save-generation: 沒有可存的 URL，跳過寫入');
     }
 
     return res.status(200).json({
