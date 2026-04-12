@@ -6,5 +6,11 @@
     "api/save-generation.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron-expiry",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }
