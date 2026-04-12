@@ -1217,7 +1217,7 @@ async function generateVideo(startImageUrl,endImageUrl,styleKey){
   const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'generateVideo',startImageUrl,endImageUrl,styleKey})});
   if(!res.ok)throw new Error('影片生成失敗，請重試');
   const data=await res.json();
-  if(data.requestId)return await pollVideoResult(data.requestId);
+  if(data.requestId)return await pollVideoResult(data.requestId, data.statusUrl||null, data.responseUrl||null);
   if(!data.videoUrl)throw new Error('影片生成失敗，請重試');
   return data.videoUrl;
 }
@@ -1235,13 +1235,13 @@ async function pollResult(requestId,modelPath,startPct,endPct){
   }
   throw new Error('等待超時，請稍後再試');
 }
-async function pollVideoResult(requestId){
+async function pollVideoResult(requestId, statusUrl, responseUrl){
   let attempts=0;
   while(attempts<120){
     await sleep(3000);attempts++;
     const pct=Math.min(55+Math.round(attempts*0.8),93);
     setProgress('生成動態影片…',pct);
-    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pollVideoStatus',requestId})});
+    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pollVideoStatus',requestId,statusUrl,responseUrl})});
     if(!res.ok)continue;
     const data=await res.json();
     if(data.status==='COMPLETED')return data.videoUrl||null;
