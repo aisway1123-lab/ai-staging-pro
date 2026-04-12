@@ -873,32 +873,37 @@ let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=n
 let generatedVideoUrl=null,generatedImageUrl=null;
 
 async function initAuth(){
-  let initialDone=false;
-  _sb.auth.onAuthStateChange(async(event,session)=>{
-    if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED')&&session?.user){
-      await onLogin(session.user);
-      if(!initialDone)closeAuth();
-      initialDone=true;
-    } else if(event==='SIGNED_OUT'){onLogout();}
-  });
+  let loginInProgress=false;
+  // 先取得 session，決定初始狀態
   const{data:{session}}=await _sb.auth.getSession();
-  if(session?.user&&!initialDone){await onLogin(session.user);initialDone=true;}
+  if(session?.user){
+    loginInProgress=true;
+    await onLogin(session.user);
+    loginInProgress=false;
+  }
+  // 監聽後續狀態變化
+  _sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_OUT'){onLogout();return;}
+    if((event==='SIGNED_IN')&&session?.user&&!loginInProgress){
+      loginInProgress=true;
+      await onLogin(session.user);
+      closeAuth();
+      loginInProgress=false;
+    }
+    // TOKEN_REFRESHED 不重新呼叫 onLogin，只更新 currentUser
+    if(event==='TOKEN_REFRESHED'&&session?.user){
+      currentUser=session.user;
+    }
+  });
 }
 async function onLogin(user){
   currentUser=user;
-  // 重試最多 3 次，處理 auth lock 競爭導致查詢失敗的情況
-  let profileData=null;
-  for(let i=0;i<3;i++){
-    const{data,error}=await _sb.from('profiles').select('*').eq('id',user.id).single();
-    if(data){profileData=data;break;}
-    if(i<2)await new Promise(r=>setTimeout(r,500));
-  }
-  currentProfile=profileData;
-  // V7：優先用 get_available_credits 即時計算，失敗則 fallback 用 profiles.credits
+  const{data,error}=await _sb.from('profiles').select('*').eq('id',user.id).single();
+  currentProfile=data||null;
   if(currentProfile){
     try{
-      const{data:credits,error}=await _sb.rpc('get_available_credits',{p_user_id:user.id});
-      if(!error && credits!==null) currentProfile.credits=credits;
+      const{data:credits}=await _sb.rpc('get_available_credits',{p_user_id:user.id});
+      if(credits!==null)currentProfile.credits=credits;
     }catch(e){}
   }
   updateHeaderUI();
@@ -933,17 +938,14 @@ function handleAuthBtn(){if(currentUser){document.getElementById('userMenu').cla
 function closeUserMenu(){document.getElementById('userMenu').classList.remove('open');}
 async function handleSignOut(){
   closeUserMenu();
-  onLogout(); // 先立即更新 UI，不等後端回應
-  showToast('已登出');
+  showToast('登出中…');
   try{
-    await Promise.race([
-      _sb.auth.signOut(),
-      new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),3000))
-    ]);
+    await _sb.auth.signOut();
   }catch(e){
-    // signOut 失敗或 timeout 都沒關係，UI 已經清除
     console.warn('signOut warning:', e.message);
   }
+  // 登出後強制重新整理，確保所有狀態乾淨
+  window.location.reload();
 }
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
 function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
