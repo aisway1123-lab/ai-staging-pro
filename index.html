@@ -885,7 +885,13 @@ async function initAuth(){
 async function onLogin(user){
   currentUser=user;
   const{data}=await _sb.from('profiles').select('*').eq('id',user.id).single();
-  currentProfile=data;updateHeaderUI();
+  currentProfile=data;
+  // V7：從 credit_logs 即時計算有效點數，取代 profiles.credits 快取
+  if(currentProfile){
+    const{data:credits}=await _sb.rpc('get_available_credits',{p_user_id:user.id});
+    currentProfile.credits=credits??0;
+  }
+  updateHeaderUI();
 }
 function onLogout(){currentUser=null;currentProfile=null;updateHeaderUI();}
 function updateHeaderUI(){
@@ -1043,9 +1049,10 @@ async function doResetPassword(){
 }
 async function deductCredits(cost){
   if(currentProfile?.role==='admin')return true;
-  const{data,error}=await _sb.rpc('deduct_credits',{p_user_id:currentUser.id,p_cost:cost});
-  if(error||!data?.success)return false;
-  if(currentProfile)currentProfile.credits=data.remaining;
+  const r=await fetch('/api/deduct-credits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:currentUser.id,cost})});
+  const data=await r.json();
+  if(!r.ok||!data.success)return false;
+  if(currentProfile&&data.remaining!==null)currentProfile.credits=data.remaining;
   updateHeaderUI();return true;
 }
 
