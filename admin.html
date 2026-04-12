@@ -189,6 +189,9 @@ td.primary{color:var(--text);}
       <div class="nav-item" id="nav-logs" onclick="showPage('logs')">
         <span class="nav-icon">◷</span><span>生成紀錄</span>
       </div>
+      <div class="nav-item" id="nav-services" onclick="showPage('services')">
+        <span class="nav-icon">⚙</span><span>服務狀態</span>
+      </div>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser">—</div>
@@ -283,7 +286,109 @@ td.primary{color:var(--text);}
   </div>
 </div>
 
-<!-- Credits Modal（僅 admin 可用）-->
+<!-- 服務狀態頁面 -->
+<div class="page" id="page-services" style="display:none;">
+  <div class="page-header">
+    <div class="page-title">服務狀態</div>
+    <div class="page-sub">所有使用中平台的方案、額度與注意事項</div>
+  </div>
+
+  <script>
+  const SERVICES = [
+    {
+      category: '核心基礎設施',
+      items: [
+        { name: 'Supabase', plan: 'Free', url: 'https://supabase.com/dashboard', color: '#3ECF8E',
+          limits: ['資料庫 500MB', '每月 5GB 流量', '每月 50,000 MAU', 'Storage 1GB'],
+          warn: '超過 MAU 上限可能導致登入功能中斷，需升級至 Pro（$25/月）',
+          checkUrl: 'https://supabase.com/dashboard/project/jyvojuswdruexgxsxarl/settings/billing' },
+        { name: 'Vercel', plan: 'Hobby（免費）', url: 'https://vercel.com/dashboard', color: '#000',
+          limits: ['100GB 頻寬/月', 'Serverless Function 100GB-hrs/月', '自訂域名無限'],
+          warn: '流量超過 100GB 需升級至 Pro（$20/月）',
+          checkUrl: 'https://vercel.com/aisway1123-lab/ai-staging-pro/settings/billing' },
+        { name: 'Cloudflare', plan: 'Free', url: 'https://dash.cloudflare.com', color: '#F6821F',
+          limits: ['DNS 管理免費', 'DDoS 保護免費'],
+          warn: '目前只用 DNS，無需升級',
+          checkUrl: 'https://dash.cloudflare.com' },
+      ]
+    },
+    {
+      category: 'AI 生成',
+      items: [
+        { name: 'fal.ai', plan: '按量計費', url: 'https://fal.ai/dashboard', color: '#8B5CF6',
+          limits: ['flux-2-lora-gallery：約 $0.05/次', 'Kling Video：約 $0.14/次', '合計每次生成約 $0.19'],
+          warn: '無免費額度，直接從帳戶餘額扣除，需保持帳戶有餘額',
+          checkUrl: 'https://fal.ai/dashboard/billing' },
+        { name: 'Anthropic（Claude Vision）', plan: '按量計費', url: 'https://console.anthropic.com', color: '#CC785C',
+          limits: ['claude-haiku-4-5：輸入 $0.80/MTok、輸出 $4/MTok', '每次品質分析約 $0.001 以下'],
+          warn: '費用極低，但需確保 API Key 有效且帳戶有餘額',
+          checkUrl: 'https://console.anthropic.com/settings/billing' },
+      ]
+    },
+    {
+      category: '通知與信件',
+      items: [
+        { name: 'Resend', plan: 'Free', url: 'https://resend.com/dashboard', color: '#000',
+          limits: ['每月 3,000 封', '每天 100 封上限', '1 個自訂域名'],
+          warn: '每天 100 封上限，Beta 期間應不會超過，正式營運後需注意',
+          checkUrl: 'https://resend.com/emails' },
+        { name: 'LINE Messaging API', plan: 'Free', url: 'https://developers.line.biz', color: '#00C300',
+          limits: ['免費方案：每月 200 則推播', '目前只用於新申請通知（你自己）'],
+          warn: '目前用量極低，不需升級',
+          checkUrl: 'https://developers.line.biz/console/' },
+      ]
+    },
+    {
+      category: '金流',
+      items: [
+        { name: '藍新金流', plan: '按交易收費', url: 'https://www.newebpay.com', color: '#003087',
+          limits: ['信用卡手續費：約 2.8%', 'ATM 轉帳：$15/筆', '無月費'],
+          warn: '⏳ 審核中，通過後切換至正式環境（core.newebpay.com）',
+          checkUrl: 'https://www.newebpay.com/backend' },
+      ]
+    },
+    {
+      category: '版本控制',
+      items: [
+        { name: 'GitHub', plan: 'Free', url: 'https://github.com/aisway1123-lab/ai-staging-pro', color: '#24292F',
+          limits: ['私有 repo 免費', '無限儲存空間'],
+          warn: '不需升級',
+          checkUrl: 'https://github.com/aisway1123-lab/ai-staging-pro' },
+      ]
+    },
+  ];
+
+  function renderServices() {
+    const container = document.getElementById('servicesContainer');
+    container.innerHTML = SERVICES.map(cat => `
+      <div style="margin-bottom:2rem;">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:1px solid var(--border);">${cat.category}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;">
+          ${cat.items.map(s => `
+            <div style="background:var(--dark-2);border:1px solid var(--border);padding:1.2rem;border-radius:2px;">
+              <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.8rem;">
+                <div style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0;"></div>
+                <div style="font-size:0.85rem;font-weight:500;color:var(--text);">${s.name}</div>
+                <div style="margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--gold);background:var(--gold-dim);padding:2px 8px;">${s.plan}</div>
+              </div>
+              <div style="font-size:0.72rem;color:var(--text-muted);line-height:1.8;margin-bottom:0.8rem;">
+                ${s.limits.map(l => `<div>• ${l}</div>`).join('')}
+              </div>
+              <div style="font-size:0.7rem;color:${s.warn.includes('⏳') ? 'var(--warning)' : s.warn.includes('需') && s.warn.includes('升級') ? 'var(--warning)' : 'var(--text-muted)'};line-height:1.6;margin-bottom:0.8rem;padding:0.5rem;background:var(--dark-1);">
+                ⚠ ${s.warn}
+              </div>
+              <a href="${s.checkUrl}" target="_blank" style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--gold);text-decoration:none;letter-spacing:0.05em;">→ 查看用量</a>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+  </script>
+
+  <div id="servicesContainer"></div>
+
+</div>
 <div class="modal-overlay" id="creditsModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('creditsModal')">✕</button>
@@ -372,9 +477,10 @@ function showPage(name){
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  if(name === 'members') loadMembers();
-  if(name === 'pending') loadPending();
-  if(name === 'logs')    loadLogs();
+  if(name === 'members')  loadMembers();
+  if(name === 'pending')  loadPending();
+  if(name === 'logs')     loadLogs();
+  if(name === 'services') renderServices();
 }
 
 function loadAll(){
