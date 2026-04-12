@@ -167,9 +167,13 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: `影片提交失敗：${submitRes.status}` });
       }
       const result = await submitRes.json();
-      // queue API 回傳 request_id
-      if (result.request_id) return res.status(200).json({ requestId: result.request_id });
-      // 極少數情況直接完成
+      console.log('generateVideo - submit result:', JSON.stringify(result));
+      // queue API 回傳 request_id 和 status_url、response_url
+      if (result.request_id) return res.status(200).json({
+        requestId:   result.request_id,
+        statusUrl:   result.status_url   || null,
+        responseUrl: result.response_url || null,
+      });
       if (result.video?.url) return res.status(200).json({ videoUrl: result.video.url });
       return res.status(500).json({ error: '影片提交未取得 request_id' });
     } catch (err) {
@@ -182,9 +186,11 @@ export default async function handler(req, res) {
     const { requestId } = req.body;
     if (!requestId) return res.status(400).json({ error: '缺少參數' });
 
+    const { statusUrl: clientStatusUrl, responseUrl: clientResponseUrl } = req.body;
     try {
-      // queue 的狀態查詢端點
-      const statusUrl = `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}/status`;
+      // 優先使用 submit 時回傳的 status_url，否則自己組
+      const statusUrl = clientStatusUrl
+        || `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}/status`;
       const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
       if (!statusRes.ok) {
         const errText = await statusRes.text();
@@ -196,8 +202,10 @@ export default async function handler(req, res) {
       const statusVal = status.status?.toUpperCase();
 
       if (statusVal === 'COMPLETED') {
-        // queue REST API 結果端點
-        const resultRes = await fetch(`https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
+        // 優先使用 submit 時回傳的 response_url，否則自己組
+        const resultUrl = clientResponseUrl
+          || `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}`;
+        const resultRes = await fetch(resultUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
         const resultData = await resultRes.json();
         console.log('pollVideoStatus - resultData:', JSON.stringify(resultData).slice(0, 300));
         // fal.ai queue REST API 直接回傳 { video: { url: ... } }，不包在 data 裡
