@@ -194,19 +194,28 @@ export default async function handler(req, res) {
       console.log('pollVideoStatus - queue status:', status.status, '| statusVal:', statusVal);
 
       if (statusVal === 'COMPLETED') {
-        // queue 的結果取得端點
+        // queue REST API 結果端點
         const resultRes = await fetch(`https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
         const resultData = await resultRes.json();
-        console.log('pollVideoStatus - resultData keys:', Object.keys(resultData));
-        // queue REST API 結果在 resultData.data 或直接在 resultData
-        const videoUrl = resultData.data?.video?.url || resultData.video?.url || null;
+        console.log('pollVideoStatus - resultData:', JSON.stringify(resultData).slice(0, 300));
+        // fal.ai queue REST API 直接回傳 { video: { url: ... } }，不包在 data 裡
+        const videoUrl = resultData.video?.url
+          || resultData.data?.video?.url
+          || resultData.output?.video?.url
+          || null;
         console.log('pollVideoStatus - videoUrl:', videoUrl);
+        if (!videoUrl) {
+          // 有完成但取不到 URL，回傳詳細錯誤讓前台知道
+          return res.status(200).json({ status: 'FAILED', error: `取得影片URL失敗，resultData: ${JSON.stringify(resultData).slice(0,200)}` });
+        }
         return res.status(200).json({ status: 'COMPLETED', videoUrl });
       }
       if (statusVal === 'FAILED') return res.status(200).json({ status: 'FAILED', error: status.error || status.detail });
       return res.status(200).json({ status: 'IN_PROGRESS' });
     } catch (err) {
-      return res.status(200).json({ status: 'IN_PROGRESS' });
+      // catch 改成回傳真實錯誤，不再吞掉
+      console.error('pollVideoStatus error:', err.message);
+      return res.status(200).json({ status: 'FAILED', error: 'pollVideoStatus 發生錯誤：' + err.message });
     }
   }
 
