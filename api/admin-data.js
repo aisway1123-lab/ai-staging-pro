@@ -109,18 +109,27 @@ export default async function handler(req, res) {
 
       if (updateErr) return res.status(500).json({ error: '更新失敗：' + updateErr.message });
 
-      // V7：寫入 credit_logs trial 類型紀錄
-      const { error: logErr } = await supabase
+      // V7：寫入 credit_logs trial 類型紀錄（冪等保護：避免重複核准產生重複點數）
+      const { data: existingLog } = await supabase
         .from('credit_logs')
-        .insert({
-          user_id:    userId,
-          type:       'trial',
-          amount:     60,
-          expires_at: trialExpiresAt,
-          note:       `試用核准（admin: ${adminId}）`
-        });
+        .select('id')
+        .eq('user_id', userId)
+        .eq('type', 'trial')
+        .maybeSingle();
 
-      if (logErr) return res.status(500).json({ error: '加點失敗：' + logErr.message });
+      if (!existingLog) {
+        const { error: logErr } = await supabase
+          .from('credit_logs')
+          .insert({
+            user_id:    userId,
+            type:       'trial',
+            amount:     60,
+            expires_at: trialExpiresAt,
+            note:       `試用核准（admin: ${adminId}）`
+          });
+
+        if (logErr) return res.status(500).json({ error: '加點失敗：' + logErr.message });
+      }
 
       // 同步更新 profiles.credits 快取
       const { data: newCredits } = await supabase
