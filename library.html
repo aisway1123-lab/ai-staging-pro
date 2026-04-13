@@ -220,12 +220,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
   </div>
 </div>
 
-<!-- Lightbox -->
-<div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <div class="lightbox-content" id="lightboxContent" onclick="event.stopPropagation()">
-    <button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button>
-  </div>
-</div>
+<!-- Lightbox 由 JS 動態插入 -->
 
 <div class="toast" id="toast"></div>
 
@@ -449,22 +444,29 @@ function renderGrid(logs){
 }
 
 function openLightbox(type, url){
-  const lbContent = document.getElementById('lightboxContent');
+  const old = document.getElementById('lightbox');
+  if(old) old.remove();
+  const lb = document.createElement('div');
+  lb.id = 'lightbox';
+  lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;z-index:999999;padding:20px;cursor:pointer;';
+  lb.onclick = closeLightbox;
+  const inner = document.createElement('div');
+  inner.id = 'lightboxContent';
+  inner.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;cursor:default;';
+  inner.onclick = e => e.stopPropagation();
+  const closeBtn = '<button onclick="closeLightbox()" style="position:absolute;top:-36px;right:0;background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;opacity:0.8;">✕ 關閉</button>';
   if(type === 'image'){
-    lbContent.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button><img src="${url}" alt="效果圖" style="max-width:90vw;max-height:85vh;">`;
+    inner.innerHTML = closeBtn + '<img src="'+url+'" alt="效果圖" style="max-width:90vw;max-height:85vh;object-fit:contain;display:block;">';
   } else {
-    lbContent.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button><video src="${url}" controls autoplay style="max-width:90vw;max-height:85vh;"></video>`;
+    inner.innerHTML = closeBtn + '<video src="'+url+'" controls autoplay style="max-width:90vw;max-height:85vh;"></video>';
   }
-  const lb = document.getElementById('lightbox');
-  lb.style.display='flex';
-  lb.classList.add('open');
+  lb.appendChild(inner);
+  document.body.appendChild(lb);
 }
 
 function closeLightbox(){
   const lb=document.getElementById('lightbox');
-  lb.classList.remove('open');
-  lb.style.display='';
-  document.getElementById('lightboxContent').innerHTML = '';
+  if(lb) lb.remove();
 }
 
 async function downloadFile(url, filename){
