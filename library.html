@@ -130,7 +130,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
 
 /* Lightbox */
 .lightbox{/* Lightbox */
-.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:none;align-items:center;justify-content:center;z-index:9000;padding:20px;}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:none;align-items:center;justify-content:center;z-index:99999;padding:20px;}
 .lightbox.open{display:flex;}
 .lightbox-content{max-width:90vw;max-height:90vh;position:relative;}
 .lightbox-content img,.lightbox-content video{max-width:100%;max-height:85vh;object-fit:contain;}
@@ -385,7 +385,7 @@ function filterLogs(type, btn){
   const now = new Date();
   const in7days = new Date(now.getTime() + 7*24*60*60*1000);
   let filtered = allLogs;
-  if(type === 'image')    filtered = allLogs.filter(l => l.image_url && !l.video_url);
+  if(type === 'image')    filtered = allLogs.filter(l => l.image_url);
   if(type === 'video')    filtered = allLogs.filter(l => l.video_url);
   if(type === 'expiring') filtered = allLogs.filter(l => l.expires_at && new Date(l.expires_at) < in7days && new Date(l.expires_at) > now);
   renderGrid(filtered);
@@ -455,11 +455,15 @@ function openLightbox(type, url){
   } else {
     content.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button><video src="${url}" controls autoplay style="max-width:90vw;max-height:85vh;"></video>`;
   }
-  document.getElementById('lightbox').classList.add('open');
+  const lb = document.getElementById('lightbox');
+  lb.classList.add('open');
+  lb.style.display='flex';
 }
 
 function closeLightbox(){
-  document.getElementById('lightbox').classList.remove('open');
+  const lb=document.getElementById('lightbox');
+  lb.classList.remove('open');
+  lb.style.display='';
   document.getElementById('lightboxContent').innerHTML = '';
 }
 
