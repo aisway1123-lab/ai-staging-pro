@@ -253,6 +253,11 @@ async function init(){
   document.getElementById('mainContent').style.display = 'block';
   loadLogs();
   loadCreditsHistory();
+  // 監聽 session 變化，防止 token 過期自動登出
+  _sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_OUT') window.location.href = '/';
+    if(event === 'TOKEN_REFRESHED' && session?.user) currentUser = session.user;
+  });
 }
 
 let allCreditsHistory = [];
@@ -364,7 +369,7 @@ async function loadLogs(){
 
   allLogs = data;
   updateStats(data);
-  renderGrid(data);
+  renderGrid(data, 'all');
 }
 
 function updateStats(logs){
@@ -383,18 +388,19 @@ function filterLogs(type, btn){
   if(type === 'image')    filtered = allLogs.filter(l => l.image_url);
   if(type === 'video')    filtered = allLogs.filter(l => l.video_url);
   if(type === 'expiring') filtered = allLogs.filter(l => l.expires_at && new Date(l.expires_at) < in7days && new Date(l.expires_at) > now);
-  renderGrid(filtered);
+  renderGrid(filtered, type);
 }
 
-function renderGrid(logs){
+function renderGrid(logs, filterType){
   const container = document.getElementById('gridContainer');
   if(!logs || logs.length === 0){
+    const isExpiring = filterType === 'expiring';
     container.innerHTML = `
       <div class="empty">
-        <div class="empty-icon">🏠</div>
-        <div class="empty-title">還沒有生成紀錄</div>
-        <div class="empty-sub">上傳空屋照，選擇風格，開始生成您的第一個作品</div>
-        <a class="empty-cta" href="/">開始生成</a>
+        <div class="empty-icon">${isExpiring ? '✅' : '🏠'}</div>
+        <div class="empty-title">${isExpiring ? '目前沒有即將到期的紀錄' : '還沒有生成紀錄'}</div>
+        <div class="empty-sub">${isExpiring ? '所有生成紀錄都在安全期內' : '上傳空屋照，選擇風格，開始生成您的第一個作品'}</div>
+        ${isExpiring ? '' : '<a class="empty-cta" href="/">開始生成</a>'}
       </div>`;
     return;
   }
