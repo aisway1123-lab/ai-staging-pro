@@ -449,15 +449,15 @@ function renderGrid(logs){
 }
 
 function openLightbox(type, url){
-  const content = document.getElementById('lightboxContent');
+  const lbContent = document.getElementById('lightboxContent');
   if(type === 'image'){
-    content.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button><img src="${url}" alt="效果圖">`;
+    lbContent.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button><img src="${url}" alt="效果圖" style="max-width:90vw;max-height:85vh;">`;
   } else {
-    content.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button><video src="${url}" controls autoplay style="max-width:90vw;max-height:85vh;"></video>`;
+    lbContent.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕ 關閉</button><video src="${url}" controls autoplay style="max-width:90vw;max-height:85vh;"></video>`;
   }
   const lb = document.getElementById('lightbox');
-  lb.classList.add('open');
   lb.style.display='flex';
+  lb.classList.add('open');
 }
 
 function closeLightbox(){
