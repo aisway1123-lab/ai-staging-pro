@@ -395,13 +395,14 @@ td.primary{color:var(--text);}
       <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:1rem;" id="creditsModalUser"></div>
       <label class="modal-label">目前點數</label>
       <input class="modal-input" type="number" id="creditsModalCurrent" readonly style="opacity:0.5">
-      <label class="modal-label">設定為</label>
-      <input class="modal-input" type="number" id="creditsModalNew" placeholder="輸入新的點數" min="0">
+      <label class="modal-label">調整量（正數加點，負數扣點）</label>
+      <input class="modal-input" type="number" id="creditsModalNew" placeholder="例：+50 或 -20">
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
         <button class="btn btn-credits btn-sm" onclick="quickAdd(10)">+10</button>
         <button class="btn btn-credits btn-sm" onclick="quickAdd(20)">+20</button>
         <button class="btn btn-credits btn-sm" onclick="quickAdd(50)">+50</button>
         <button class="btn btn-credits btn-sm" onclick="quickAdd(100)">+100</button>
+        <button class="btn btn-danger btn-sm" onclick="quickAdd(-20)">-20</button>
       </div>
     </div>
     <div class="modal-footer">
@@ -751,25 +752,29 @@ function openCreditsModal(userId, email, currentCredits){
   editingUserId = userId;
   document.getElementById('creditsModalUser').textContent = email;
   document.getElementById('creditsModalCurrent').value   = currentCredits;
-  document.getElementById('creditsModalNew').value       = currentCredits;
+  document.getElementById('creditsModalNew').value       = 0;
   document.getElementById('creditsModal').classList.add('open');
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 function quickAdd(n){
-  const cur = parseInt(document.getElementById('creditsModalCurrent').value) || 0;
+  const cur = parseInt(document.getElementById('creditsModalNew').value) || 0;
   document.getElementById('creditsModalNew').value = cur + n;
 }
 async function saveCredits(){
-  const newVal = parseInt(document.getElementById('creditsModalNew').value);
-  if(isNaN(newVal) || newVal < 0){ showToast('請輸入有效的點數'); return; }
+  const adjustVal = parseInt(document.getElementById('creditsModalNew').value);
+  if(isNaN(adjustVal) || adjustVal === 0){ showToast('請輸入有效的調整量（不可為 0）'); return; }
+  const current = parseInt(document.getElementById('creditsModalCurrent').value) || 0;
+  const preview = current + adjustVal;
+  const action = adjustVal > 0 ? `加 ${adjustVal} 點` : `扣 ${Math.abs(adjustVal)} 點`;
+  if(!confirm(`確認${action}？調整後點數：${preview}`)) return;
   const resp = await fetch('/api/admin-data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'updateCredits', adminId: adminUser.id, userId: editingUserId, newCredits: newVal })
+    body: JSON.stringify({ action: 'updateCredits', adminId: adminUser.id, userId: editingUserId, adjustAmount: adjustVal })
   });
   const result = await resp.json();
   if(!result.success){ showToast('更新失敗：' + (result.error || '未知錯誤')); return; }
-  showToast(`✓ 點數已更新為 ${newVal}`);
+  showToast(`✓ ${action}成功，調整後約 ${preview} 點`);
   closeModal('creditsModal');
   loadMembers(); loadStats();
 }
