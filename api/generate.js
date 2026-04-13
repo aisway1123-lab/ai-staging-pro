@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     const E_Presentation = `Interior staging visualization. High realism, professional real estate presentation. Designed to look like a model home. Visually appealing, aspirational, and marketable. Ceiling remains clean and simple, appropriate to the selected style.`;
     const F_Negative = `Do not include: camera angle change, perspective shift, window shape change, wall modification, distorted geometry, warped perspective, bent lines, adding windows, adding doors, adding openings, architectural redesign, new rooms, new partitions, people, animals, text, watermark, logo, fantasy, surreal, cartoon, stylized.`;
 
-    const fullPrompt = `${A_Structure} ${ROOM_PROMPTS[roomKey]} ${STYLE_PROMPTS[styleKey]} ${E_Presentation} ${F_Negative}`;
+    const fullPrompt = `${A_Structure} ${ROOM_PROMPTS[roomKey]} ${STYLE_PROMPTS[styleKey]} ${E_Presentation} ${F_Negative} 8K resolution, ultra high definition.`;
     const body = { prompt: fullPrompt, image_urls: [imageUrl], lora_scale: 0.75, guidance_scale: 2.1, num_inference_steps: 40, num_images: 1, output_format: "png", enable_safety_checker: true };
 
     try {
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `Interior staging transformation. Static camera, no camera movement. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. New furniture enters smoothly. High realism, professional real estate visualization.`,
+          prompt: `Interior staging transformation. Static camera, no camera movement. The space naturally transforms from its original state into a fully staged ${styleLabel} interior. New furniture enters smoothly. High realism, professional real estate visualization. 8K resolution, ultra high definition.`,
           start_image_url: finalStartUrl,
           end_image_url: endImageUrl,
           duration: "5",
@@ -167,13 +167,9 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: `影片提交失敗：${submitRes.status}` });
       }
       const result = await submitRes.json();
-      console.log('generateVideo - submit result:', JSON.stringify(result));
-      // queue API 回傳 request_id 和 status_url、response_url
-      if (result.request_id) return res.status(200).json({
-        requestId:   result.request_id,
-        statusUrl:   result.status_url   || null,
-        responseUrl: result.response_url || null,
-      });
+      // queue API 回傳 request_id
+      if (result.request_id) return res.status(200).json({ requestId: result.request_id });
+      // 極少數情況直接完成
       if (result.video?.url) return res.status(200).json({ videoUrl: result.video.url });
       return res.status(500).json({ error: '影片提交未取得 request_id' });
     } catch (err) {
@@ -186,11 +182,9 @@ export default async function handler(req, res) {
     const { requestId } = req.body;
     if (!requestId) return res.status(400).json({ error: '缺少參數' });
 
-    const { statusUrl: clientStatusUrl, responseUrl: clientResponseUrl } = req.body;
     try {
-      // 優先使用 submit 時回傳的 status_url，否則自己組
-      const statusUrl = clientStatusUrl
-        || `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}/status`;
+      // queue 的狀態查詢端點
+      const statusUrl = `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}/status`;
       const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
       if (!statusRes.ok) {
         const errText = await statusRes.text();
@@ -202,10 +196,8 @@ export default async function handler(req, res) {
       const statusVal = status.status?.toUpperCase();
 
       if (statusVal === 'COMPLETED') {
-        // 優先使用 submit 時回傳的 response_url，否則自己組
-        const resultUrl = clientResponseUrl
-          || `https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}`;
-        const resultRes = await fetch(resultUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
+        // queue REST API 結果端點
+        const resultRes = await fetch(`https://queue.fal.run/fal-ai/kling-video/o1/standard/image-to-video/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
         const resultData = await resultRes.json();
         console.log('pollVideoStatus - resultData:', JSON.stringify(resultData).slice(0, 300));
         // fal.ai queue REST API 直接回傳 { video: { url: ... } }，不包在 data 裡
