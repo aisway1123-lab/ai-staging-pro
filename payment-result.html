@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>付款結果｜AI Staging Pro</title>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  window.SUPABASE_URL      = "https://jyvojuswdruexgxsxarl.supabase.co";
+  window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5dm9qdXN3ZHJ1ZXhneHN4YXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTM2ODAsImV4cCI6MjA5MDE2OTY4MH0.6FL0eBQmXV9_vziTVyTqjiKB1UL32Jaw1ypel41jm1E";
+</script>
 <style>
 :root{--green:#2C4A3E;--gold:#A8844A;--bg:#F7F5F0;--ink:#1A1A18;--ink-muted:#8A8880;--border:rgba(26,26,24,0.1);--shadow-lg:0 4px 24px rgba(26,26,24,0.12);}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -17,37 +22,109 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Mono',monospace;min-h
 .btn:hover{background:#3D6355;}
 .btn.outline{background:transparent;border:1px solid var(--green);color:var(--green);}
 .btn.outline:hover{background:var(--green);color:white;}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid rgba(44,74,62,0.15);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite;margin-bottom:1rem;}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 <div class="box" id="resultBox">
-  <div class="icon">⏳</div>
-  <div class="title">處理中…</div>
-  <div class="sub">正在確認付款結果，請稍候。</div>
+  <div class="spinner"></div>
+  <div class="title">確認付款中…</div>
+  <div class="sub">正在確認您的付款狀態，請稍候。</div>
 </div>
 <script>
-// 從 URL 參數判斷付款結果
-const params = new URLSearchParams(window.location.search);
-const status = params.get('Status') || params.get('status');
+const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 const box = document.getElementById('resultBox');
+const orderNo = sessionStorage.getItem('pending_order_no');
 
-setTimeout(() => {
-  if(status === 'SUCCESS' || !status){
-    box.innerHTML = `
-      <div class="icon">✅</div>
-      <div class="title">付款成功！</div>
-      <div class="sub">點數將在幾秒內自動加入您的帳號。<br>如有問題請聯繫 LINE 客服：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a></div>
-      <a class="btn" href="/">開始生成</a>
-      <a class="btn outline" href="/library.html">我的紀錄</a>`;
-  } else {
-    box.innerHTML = `
-      <div class="icon">❌</div>
-      <div class="title">付款失敗</div>
-      <div class="sub">付款未完成，點數未扣除。<br>如有疑問請聯繫 LINE 客服：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a></div>
-      <a class="btn" href="/pricing.html">重新選擇方案</a>
-      <a class="btn outline" href="/">返回首頁</a>`;
+function showSuccess() {
+  sessionStorage.removeItem('pending_order_no');
+  box.innerHTML = `
+    <div class="icon">✅</div>
+    <div class="title">付款成功！</div>
+    <div class="sub">點數已自動加入您的帳號，即可開始使用。<br>如有問題請聯繫 LINE 客服：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a></div>
+    <a class="btn" href="/">開始生成</a>
+    <a class="btn outline" href="/pricing.html">返回方案頁</a>`;
+}
+
+function showFail(msg) {
+  box.innerHTML = `
+    <div class="icon">❌</div>
+    <div class="title">付款未完成</div>
+    <div class="sub">${msg || '付款未成功，點數未扣除。'}<br>如有疑問請聯繫 LINE 客服：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a></div>
+    <a class="btn" href="/pricing.html">重新選擇方案</a>
+    <a class="btn outline" href="/">返回首頁</a>`;
+}
+
+function showTimeout() {
+  sessionStorage.removeItem('pending_order_no');
+  box.innerHTML = `
+    <div class="icon">⏳</div>
+    <div class="title">確認中，請稍候</div>
+    <div class="sub">付款正在處理中，點數將於確認後自動加入。<br>若長時間未到帳請聯繫 LINE 客服：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a></div>
+    <a class="btn" href="/">返回首頁</a>
+    <a class="btn outline" href="/pricing.html">查看方案</a>`;
+}
+
+async function pollOrderStatus() {
+  if (!orderNo) {
+    // 沒有訂單號碼，可能是直接訪問此頁面
+    showTimeout();
+    return;
   }
-}, 1500);
+
+  const maxAttempts = 20; // 最多輪詢 20 次（約 60 秒）
+  let attempts = 0;
+
+  const poll = async () => {
+    attempts++;
+    try {
+      const { data: order, error } = await _sb
+        .from('orders')
+        .select('status')
+        .eq('order_no', orderNo)
+        .single();
+
+      if (error || !order) {
+        if (attempts >= maxAttempts) {
+          showTimeout();
+          return;
+        }
+        setTimeout(poll, 3000);
+        return;
+      }
+
+      if (order.status === 'paid') {
+        showSuccess();
+        return;
+      }
+
+      if (order.status === 'failed') {
+        showFail('付款失敗，點數未扣除。');
+        return;
+      }
+
+      // 還是 pending，繼續等
+      if (attempts >= maxAttempts) {
+        showTimeout();
+        return;
+      }
+      setTimeout(poll, 3000);
+
+    } catch(e) {
+      if (attempts >= maxAttempts) {
+        showTimeout();
+        return;
+      }
+      setTimeout(poll, 3000);
+    }
+  };
+
+  // 等 2 秒後開始第一次查詢（給 webhook 一點時間處理）
+  setTimeout(poll, 2000);
+}
+
+pollOrderStatus();
 </script>
 </body>
 </html>
