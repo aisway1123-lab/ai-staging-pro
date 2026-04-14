@@ -944,8 +944,8 @@ async function handleSignOut(){
   }catch(e){
     console.warn('signOut warning:', e.message);
   }
-  // 登出後強制重新整理，確保所有狀態乾淨
-  window.location.reload();
+  // 登出後強制重新請求頁面（避免 cmd+r 軟刷新讀 cache 導致 UI 殘留）
+  window.location.href = window.location.pathname;
 }
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
 function openAuth(tab='login'){document.getElementById('authOverlay').classList.add('open');auTab(tab);}
