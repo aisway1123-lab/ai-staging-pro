@@ -884,6 +884,14 @@ async function initAuth(){
   // 監聽後續狀態變化
   _sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_OUT'){onLogout();return;}
+    // Token 刷新失敗：自動清除狀態並提示重新登入
+    if(event==='TOKEN_REFRESH_FAILED'){
+      console.warn('Token refresh failed, clearing session');
+      try{await _sb.auth.signOut();}catch(e){}
+      onLogout();
+      showToast('登入已逾時，請重新登入');
+      return;
+    }
     if((event==='SIGNED_IN')&&session?.user&&!loginInProgress){
       loginInProgress=true;
       await onLogin(session.user);
