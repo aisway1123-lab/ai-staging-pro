@@ -116,7 +116,6 @@ export default async function handler(req, res) {
       Version:     '2.0',
     },
     // 測試環境用 sandbox，正式環境用 payment
-    paymentUrl: 'https://ccore.newebpay.com/MPG/mpg_gateway'  // 測試環境
-    // paymentUrl: 'https://core.newebpay.com/MPG/mpg_gateway'  // 正式環境
+    paymentUrl: 'https://core.newebpay.com/MPG/mpg_gateway'  // 正式環境
   });
 }
