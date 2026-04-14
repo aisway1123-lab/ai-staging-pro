@@ -154,7 +154,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
 <div class="main">
   <div class="page-eyebrow">方案與定價</div>
   <div class="page-title">選擇適合您的方案</div>
-  <div class="page-sub">所有方案均含 AI 虛擬裝潢效果圖 + 動態影片生成，每次消耗 20 點。<br>訂閱方案可隨時取消，點數包一次購買永久有效。</div>
+  <div class="page-sub">所有方案均含 AI 虛擬裝潢效果圖 + 動態影片生成，每次消耗 20 點。<br>訂閱方案可隨時取消，點數包購買後 90 天內有效。</div>
 
   <!-- 月費/年費切換 -->
   <div class="billing-toggle">
@@ -174,7 +174,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
       <div class="plan-price" id="miniPrice">NT$899<span>/月</span></div>
       <div class="plan-per" id="miniPer">每月 300 點 · 最多 15 次生成</div>
       <div class="plan-divider"></div>
-      <div class="plan-credits">每月 300 點（NT$3.0/點）</div>
+      <div class="plan-credits" id="miniCredits">每月 300 點（NT$3.0/點）</div>
       <div class="plan-feature">AI 裝潢效果圖生成</div>
       <div class="plan-feature">AI 動態影片生成</div>
       <div class="plan-feature">Claude Vision 品質分析</div>
@@ -191,7 +191,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
       <div class="plan-price" id="standardPrice">NT$1,980<span>/月</span></div>
       <div class="plan-per" id="standardPer">每月 1,000 點 · 最多 50 次生成</div>
       <div class="plan-divider"></div>
-      <div class="plan-credits">每月 1,000 點（NT$1.98/點）</div>
+      <div class="plan-credits" id="standardCredits">每月 1,000 點（NT$1.98/點）</div>
       <div class="plan-feature">AI 裝潢效果圖生成</div>
       <div class="plan-feature">AI 動態影片生成</div>
       <div class="plan-feature">Claude Vision 品質分析</div>
@@ -206,7 +206,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
   <!-- 點數包 -->
   <div class="section-title">單次購買點數包</div>
   <div class="note">
-    <div class="note-text">💡 點數包無使用期限，適合偶爾使用的房地產從業者。購買後永久有效，可搭配試用點數一起使用。</div>
+    <div class="note-text">💡 點數包購買後 90 天內有效，適合偶爾使用的房地產從業者。可搭配試用點數一起使用，點到用光為止。</div>
   </div>
   <div class="credits-grid">
     <div class="credits-card">
@@ -252,11 +252,11 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
     </div>
     <div class="faq-item" onclick="toggleFaq(this)">
       <div class="faq-q">點數可以累積嗎？<span class="faq-arrow">▼</span></div>
-      <div class="faq-a">訂閱方案每月重置（不累積），點數包購買後 90 天內有效。建議固定使用量大的用訂閱，偶爾使用的買點數包。</div>
+      <div class="faq-a">月繳方案每月重置、年繳方案每年重置（均不累積）。點數包購買後 90 天內有效。固定使用量大建議選訂閱，偶爾使用建議買點數包。</div>
     </div>
     <div class="faq-item" onclick="toggleFaq(this)">
       <div class="faq-q">可以退款嗎？<span class="faq-arrow">▼</span></div>
-      <div class="faq-a">訂閱方案可隨時取消，取消後服務持續至本期結束，不退差額。點數包若未使用可申請退款，已使用部分不退。</div>
+      <div class="faq-a">訂閱方案可隨時取消，取消後服務持續至本期結束，不退差額。點數包為數位商品，購買後不退款，點數於 90 天有效期內使用完畢為止。</div>
     </div>
     <div class="faq-item" onclick="toggleFaq(this)">
       <div class="faq-q">推薦獎勵怎麼運作？<span class="faq-arrow">▼</span></div>
@@ -264,13 +264,11 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
     </div>
     <div class="faq-item" onclick="toggleFaq(this)">
       <div class="faq-q">支援哪些付款方式？<span class="faq-arrow">▼</span></div>
-      <div class="faq-a">支援信用卡（Visa/Master/JCB）、Apple Pay、Google Pay、ATM 轉帳、超商代碼繳費。</div>
+      <div class="faq-a">支援信用卡（Visa/Master/JCB）、Apple Pay、Google Pay、Samsung Pay、LINE Pay。</div>
     </div>
   </div>
   <div style="text-align:center;margin-bottom:1rem;">
     <a href="https://line.me/R/ti/p/@536vcequ" target="_blank" style="font-family:var(--font-mono);font-size:11px;color:var(--green);text-decoration:none;border-bottom:1px solid rgba(44,74,62,0.2);letter-spacing:0.08em;">LINE 客服：@536vcequ</a>
-    <span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-subtle);margin:0 10px;">｜</span>
-    <a href="/cdn-cgi/l/email-protection#90f1f9e3e7f1e9a1a1a2a3d0f7fdf1f9fcbef3fffd" style="font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);text-decoration:none;border-bottom:1px solid var(--border);letter-spacing:0.08em;"><span class="__cf_email__" data-cfemail="96f7ffe5e1f7efa7a7a4a5d6f1fbf7fffab8f5f9fb">[email&#160;protected]</span></a>
   </div>
   <div style="text-align:center;margin-bottom:2rem;">
     <a href="/terms.html" style="font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);text-decoration:none;border-bottom:1px solid var(--border);letter-spacing:0.08em;">閱讀完整服務條款、隱私政策與免責聲明 →</a>
@@ -345,8 +343,10 @@ function toggleBilling(){
   if(isYearly){
     document.getElementById('miniPrice').innerHTML = 'NT$8,990<span>/年</span>';
     document.getElementById('miniPer').textContent = '每年 3,600 點 · 最多 180 次生成';
+    document.getElementById('miniCredits').textContent = '每年 3,600 點（NT$2.5/點）';
     document.getElementById('standardPrice').innerHTML = 'NT$19,800<span>/年</span>';
     document.getElementById('standardPer').textContent = '每年 12,000 點 · 最多 600 次生成';
+    document.getElementById('standardCredits').textContent = '每年 12,000 點（NT$1.65/點）';
     document.getElementById('btnMiniMonthly').style.display = 'none';
     document.getElementById('btnMiniYearly').style.display = 'block';
     document.getElementById('btnStandardMonthly').style.display = 'none';
@@ -354,8 +354,10 @@ function toggleBilling(){
   } else {
     document.getElementById('miniPrice').innerHTML = 'NT$899<span>/月</span>';
     document.getElementById('miniPer').textContent = '每月 300 點 · 最多 15 次生成';
+    document.getElementById('miniCredits').textContent = '每月 300 點（NT$3.0/點）';
     document.getElementById('standardPrice').innerHTML = 'NT$1,980<span>/月</span>';
     document.getElementById('standardPer').textContent = '每月 1,000 點 · 最多 50 次生成';
+    document.getElementById('standardCredits').textContent = '每月 1,000 點（NT$1.98/點）';
     document.getElementById('btnMiniMonthly').style.display = 'block';
     document.getElementById('btnMiniYearly').style.display = 'none';
     document.getElementById('btnStandardMonthly').style.display = 'block';
