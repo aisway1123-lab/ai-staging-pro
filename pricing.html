@@ -313,7 +313,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
 
 <div class="toast" id="toast"></div>
 
-const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);<script>
 let currentUser = null;
 let isYearly = false;
 let pendingPlanId = null;
@@ -424,4 +424,4 @@ async function proceedToPayment(planId, referralCode){
   }
 }
 
-function toggleFaq(el)
+function toggleFaq(el)<script>
