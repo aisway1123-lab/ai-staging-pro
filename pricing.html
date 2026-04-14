@@ -420,6 +420,8 @@ async function proceedToPayment(planId, referralCode){
     document.getElementById('fTradeInfo').value  = data.formData.TradeInfo;
     document.getElementById('fTradeSha').value   = data.formData.TradeSha;
     document.getElementById('fVersion').value    = data.formData.Version;
+    // 儲存訂單號碼，讓 payment-result.html 可以查詢訂單狀態
+    sessionStorage.setItem('pending_order_no', data.orderNo);
     form.submit();
   }catch(e){
     showToast('錯誤：' + e.message);
