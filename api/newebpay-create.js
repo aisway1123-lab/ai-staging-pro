@@ -101,8 +101,8 @@ export default async function handler(req, res) {
     CREDIT:         '1',  // 信用卡
     ANDROIDPAY:     '1',  // Google Pay
     APPLEPAY:       '1',  // Apple Pay
-    SAMSUNGPAY:     '1',  // Samsung Pay
-    LINEPAY:        '1',  // LINE Pay
+    // SAMSUNGPAY: '1',  // Samsung Pay（申請中，開通後啟用）
+    // LINEPAY:    '1',  // LINE Pay（審核中，開通後啟用）
   }).toString();
 
   const encryptedTradeInfo = aesEncrypt(tradeInfo, HASH_KEY, HASH_IV);
