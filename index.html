@@ -690,13 +690,13 @@ input[type="file"] { display: none; }
         <div class="step" id="step3">③ 生成</div>
       </div>
       <div class="upload-zone" id="uploadZone">
-        <input type="file" id="fileInput" accept="image/*">
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif">
         <div class="upload-icon">🏠</div>
         <div class="upload-text">
           <strong>點擊或拖曳上傳照片</strong>
           支援橫式或直式空屋照，保留原始比例
         </div>
-        <div class="upload-hint">JPG / PNG｜建議 2MB 以上清晰圖片｜最大 10MB</div>
+        <div class="upload-hint">JPG / PNG / WebP｜建議 1MB 以上清晰圖片｜最大 10MB（自動優化）</div>
         <button class="change-btn" onclick="resetUpload(event)">重新上傳</button>
       </div>
       <div class="precheck" id="precheck">
@@ -1104,9 +1104,15 @@ function processImage(file){
     openAuth('login');
     return;
   }
-  // 圖片大小限制 10MB
+  // 圖片大小限制 10MB（壓縮前原始檔案）
   if(file.size > 10*1024*1024){
     showToast('圖片大小不可超過 10MB，請壓縮後再上傳');
+    return;
+  }
+  // 格式檢查：明確拒絕 HEIC/HEIF（桌面 Chrome 無法處理）
+  const allowedTypes = ['image/jpeg','image/png','image/webp','image/gif'];
+  if(!allowedTypes.includes(file.type) && file.type !== ''){
+    showToast('請上傳 JPG、PNG 或 WebP 格式的圖片');
     return;
   }
   // 點數不足：阻擋，引導購買
@@ -1132,16 +1138,59 @@ function processImage(file){
   }
   const r=new FileReader();
   r.onload=e=>{
-    uploadedImageBase64=e.target.result;
-    const img=new Image();
-    img.onload=()=>{const w=img.naturalWidth,h=img.naturalHeight,ratio=w/h;if(ratio>1.2){imageAspectRatio='16:9';}else if(ratio<0.8){imageAspectRatio='9:16';}else{imageAspectRatio='1:1';}};
-    img.src=uploadedImageBase64;
-    uz.classList.add('has-image');
-    uz.innerHTML=`<img src="${uploadedImageBase64}" alt="上傳照片"><button class="change-btn" onclick="resetUpload(event)">重新上傳</button><div class="wm">已上傳｜等待生成</div>`;
-    runPreCheck();
-    document.getElementById('step1').className='step done';
-    document.getElementById('step2').className='step active';
+    const rawDataUrl = e.target.result;
+    const img = new Image();
+    img.onload = () => {
+      try {
+        // ── Canvas 壓縮：長邊最大 1920px，品質 85%，填白底（防 PNG 透明變黑）──
+        const MAX_SIDE = 1920;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        // 防止超大圖片耗盡記憶體
+        if(w === 0 || h === 0){ showToast('圖片讀取失敗，請重新上傳'); return; }
+        const ratio = w / h;
+        if(w > MAX_SIDE || h > MAX_SIDE){
+          if(w >= h){ w = MAX_SIDE; h = Math.round(MAX_SIDE / ratio); }
+          else { h = MAX_SIDE; w = Math.round(MAX_SIDE * ratio); }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // 填白底，避免 PNG 透明區域轉 JPEG 後變黑
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        // 輸出 JPEG，品質 0.85
+        uploadedImageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        // 計算壓縮後大小（base64 去掉 header 後 * 0.75）
+        const compressedBytes = Math.round((uploadedImageBase64.length - 22) * 0.75);
+        // 壓縮後若仍超過 4MB（Vercel body limit 4.5MB），繼續降品質
+        if(compressedBytes > 4 * 1024 * 1024){
+          uploadedImageBase64 = canvas.toDataURL('image/jpeg', 0.65);
+        }
+        console.log(`圖片壓縮完成：${(file.size/1024/1024).toFixed(1)}MB → ~${(compressedBytes/1024/1024).toFixed(1)}MB`);
+      } catch(err) {
+        // Canvas 失敗（例如跨域圖片）：退回原始 base64
+        console.warn('Canvas 壓縮失敗，使用原始圖片:', err);
+        uploadedImageBase64 = rawDataUrl;
+      }
+      // 更新長寬比
+      const r2 = img.naturalWidth / img.naturalHeight;
+      if(r2 > 1.2){ imageAspectRatio = '16:9'; }
+      else if(r2 < 0.8){ imageAspectRatio = '9:16'; }
+      else { imageAspectRatio = '1:1'; }
+      // 更新 UI
+      uz.classList.add('has-image');
+      uz.innerHTML=`<img src="${uploadedImageBase64}" alt="上傳照片"><button class="change-btn" onclick="resetUpload(event)">重新上傳</button><div class="wm">已上傳｜等待生成</div>`;
+      runPreCheck();
+      document.getElementById('step1').className='step done';
+      document.getElementById('step2').className='step active';
+    };
+    img.onerror = () => {
+      showToast('圖片讀取失敗，請確認格式為 JPG、PNG 或 WebP');
+    };
+    img.src = rawDataUrl;
   };
+  r.onerror = () => { showToast('圖片讀取失敗，請重新上傳'); };
   r.readAsDataURL(file);
 }
 
@@ -1194,7 +1243,7 @@ function renderVisionResult(pc,pb,result){
 function resetUpload(e){
   e.stopPropagation();uploadedImageBase64=null;uploadedImageUrl=null;
   uz.classList.remove('has-image');
-  uz.innerHTML=`<input type="file" id="fileInput" accept="image/*"><div class="upload-icon">🏠</div><div class="upload-text"><strong>點擊或拖曳上傳照片</strong>支援橫式或直式空屋照，保留原始比例</div><div class="upload-hint">JPG / PNG｜建議 2MB 以上清晰圖片</div><button class="change-btn" onclick="resetUpload(event)">重新上傳</button>`;
+  uz.innerHTML=`<input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif"><div class="upload-icon">🏠</div><div class="upload-text"><strong>點擊或拖曳上傳照片</strong>支援橫式或直式空屋照，保留原始比例</div><div class="upload-hint">JPG / PNG / WebP｜建議 1MB 以上清晰圖片</div><button class="change-btn" onclick="resetUpload(event)">重新上傳</button>`;
   document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])processImage(e.target.files[0]);});
   document.getElementById('precheck').style.display='none';checkReady();
 }
