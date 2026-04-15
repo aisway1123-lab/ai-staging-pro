@@ -96,7 +96,7 @@ export default async function handler(req, res) {
     ItemDesc:       plan.name,
     Email:          userEmail || '',
     NotifyURL:      `${SITE_URL}/api/newebpay-webhook`,
-    ReturnURL:      `${SITE_URL}/payment-result.html`,
+    ReturnURL:      `${SITE_URL}/api/newebpay-return`,
     ClientBackURL:  `${SITE_URL}/pricing.html`,
     CREDIT:         '1',  // 信用卡
     ANDROIDPAY:     '1',  // Google Pay
