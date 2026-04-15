@@ -103,7 +103,6 @@ export default async function handler(req, res) {
     APPLEPAY:       '1',  // Apple Pay
     SAMSUNGPAY:     '1',  // Samsung Pay
     LINEPAY:        '1',  // LINE Pay
-    ImageUrl:       `${SITE_URL}/logo-horizontal.png`,  // LINE Pay 商品圖
   }).toString();
 
   const encryptedTradeInfo = aesEncrypt(tradeInfo, HASH_KEY, HASH_IV);
