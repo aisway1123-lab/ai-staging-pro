@@ -173,7 +173,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
   <div class="page-header">
     <div class="page-eyebrow">生成歷史</div>
     <div class="page-title">我的紀錄</div>
-    <div class="page-sub">圖片保存 60 天，影片保存 30 天，請及時下載</div>
+    <div class="page-sub">生成紀錄依方案保存，請及時下載圖片與影片</div>
   </div>
 
   <div class="stats-bar" id="statsBar">
@@ -253,73 +253,85 @@ async function init(){
   document.getElementById('mainContent').style.display = 'block';
   loadLogs();
   loadCreditsHistory();
-  // 監聽 session 變化，防止 token 過期自動登出
-  _sb.auth.onAuthStateChange((event, session) => {
-    if(event === 'SIGNED_OUT') window.location.href = '/';
+  // 監聽 session 變化
+  _sb.auth.onAuthStateChange(async(event, session) => {
+    if(event === 'SIGNED_OUT'){ window.location.href = '/'; return; }
+    // Token 刷新失敗：導回首頁重新登入
+    if(event === 'TOKEN_REFRESH_FAILED'){
+      console.warn('Token refresh failed on library page');
+      try{ await _sb.auth.signOut(); }catch(e){}
+      window.location.href = '/';
+      return;
+    }
     if(event === 'TOKEN_REFRESHED' && session?.user) currentUser = session.user;
   });
 }
 
 let allCreditsHistory = [];
 
+// 各 type 的顯示設定
+const CREDIT_LOG_CONFIG = {
+  trial:        { tabType: 'credit', badge: 'trial',    badgeText: '試用',   labelFn: () => '試用核准' },
+  pack:         { tabType: 'credit', badge: 'purchase', badgeText: '儲值',   labelFn: (l) => PACK_LABELS[l.note?.match(/credits_\w+/)?.[0]] || '點數包' },
+  subscription: { tabType: 'credit', badge: 'purchase', badgeText: '訂閱',   labelFn: (l) => l.note?.includes('mini') ? (l.note?.includes('yearly') ? '迷你年費' : '迷你月費') : (l.note?.includes('yearly') ? '標準年費' : '標準月費') },
+  referral:     { tabType: 'credit', badge: 'trial',    badgeText: '推薦',   labelFn: () => '推薦獎勵' },
+  promo:        { tabType: 'credit', badge: 'purchase', badgeText: '贈點',   labelFn: (l) => l.note || '後台調整' },
+  generation:   { tabType: 'debit',  badge: 'gen',      badgeText: '生成',   labelFn: (l) => l.note || 'AI 生成消耗' },
+  expiry:       { tabType: 'debit',  badge: 'gen',      badgeText: '到期',   labelFn: (l, sourceTypeMap) => {
+    const srcType = sourceTypeMap?.[l.source_log_id];
+    if(srcType === 'trial')        return '試用點數到期';
+    if(srcType === 'pack')         return '點數包到期';
+    if(srcType === 'subscription') return '訂閱點數重置';
+    if(srcType === 'referral')     return '推薦點數到期';
+    return '點數到期';
+  }},
+};
+
+const PACK_LABELS = {
+  credits_100: '入門點數包 100點',
+  credits_300: '標準點數包 300點',
+  credits_600: '超值點數包 600點',
+};
+
 async function loadCreditsHistory(){
-  // 載入消費紀錄（generation_logs）
+  // 直接從 credit_logs 讀取所有記錄，包含 generation、expiry、trial 等
+  const { data: creditLogs } = await _sb.from('credit_logs')
+    .select('id, type, amount, expires_at, note, created_at, source_log_id')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  // 也載入 generation_logs 補充生成的風格/空間資訊
   const { data: genLogs } = await _sb.from('generation_logs')
     .select('id, style, room_type, credits_used, created_at')
     .eq('user_id', currentUser.id)
     .order('created_at', { ascending: false });
 
-  // 載入儲值紀錄（orders）
-  const { data: orders } = await _sb.from('orders')
-    .select('id, plan_type, credits, amount, status, created_at, paid_at')
-    .eq('user_id', currentUser.id)
-    .eq('status', 'paid')
-    .order('created_at', { ascending: false });
+  const genMap = {};
+  (genLogs || []).forEach(g => { genMap[g.id] = g; });
 
-  // 載入試用資訊（profiles）
-  const { data: profile } = await _sb.from('profiles')
-    .select('trial_expires_at, referred_by, referral_code')
-    .eq('id', currentUser.id)
-    .single();
+  // 建立 id → type 的 map，讓 expiry 可以查源頭是哪種點數類型
+  const sourceTypeMap = {};
+  (creditLogs || []).forEach(l => { sourceTypeMap[l.id] = l.type; });
 
-  // 消費紀錄
-  const debitItems = (genLogs || []).map(l => ({
-    type: 'debit',
-    label: `${STYLE_LABELS[l.style]||l.style||'—'} × ${ROOM_LABELS[l.room_type]||l.room_type||'—'}`,
-    badge: 'gen',
-    badgeText: '生成',
-    points: -(l.credits_used || 0),
-    date: l.created_at
-  }));
+  allCreditsHistory = (creditLogs || []).map(l => {
+    const cfg = CREDIT_LOG_CONFIG[l.type] || { tabType: l.amount > 0 ? 'credit' : 'debit', badge: 'gen', badgeText: l.type, labelFn: () => l.note || l.type };
 
-  // 付費儲值紀錄
-  const creditItems = (orders || []).map(o => ({
-    type: 'credit',
-    label: PLAN_LABELS[o.plan_type] || o.plan_type,
-    badge: 'purchase',
-    badgeText: '儲值',
-    points: +(o.credits || 0),
-    amount: o.amount,
-    date: o.paid_at || o.created_at
-  }));
+    // generation 類型補充風格/空間說明
+    let label = cfg.labelFn(l, sourceTypeMap);
+    if(l.type === 'generation' && l.source_log_id && genMap[l.source_log_id]){
+      const g = genMap[l.source_log_id];
+      label = `${STYLE_LABELS[g.style]||g.style||'—'} × ${ROOM_LABELS[g.room_type]||g.room_type||'—'}`;
+    }
 
-  // 試用核准點數（若有 trial_expires_at 表示曾核准試用）
-  const trialItems = [];
-  if(profile?.trial_expires_at){
-    const trialStart = new Date(new Date(profile.trial_expires_at).getTime() - 7*24*60*60*1000);
-    trialItems.push({
-      type: 'credit',
-      label: '試用核准',
-      badge: 'trial',
-      badgeText: '試用',
-      points: 60,
-      amount: null,
-      date: trialStart.toISOString()
-    });
-  }
-
-  allCreditsHistory = [...debitItems, ...creditItems, ...trialItems]
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    return {
+      type:      cfg.tabType,
+      label,
+      badge:     cfg.badge,
+      badgeText: cfg.badgeText,
+      points:    l.amount,
+      date:      l.created_at
+    };
+  });
 
   renderCreditsTable(allCreditsHistory);
 }
@@ -338,7 +350,8 @@ function switchCreditsTab(type, btn){
   document.querySelectorAll('.credits-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   if(type === 'all') renderCreditsTable(allCreditsHistory);
-  else renderCreditsTable(allCreditsHistory.filter(i => i.type === type));
+  else if(type === 'debit') renderCreditsTable(allCreditsHistory.filter(i => i.type === 'debit'));
+  else renderCreditsTable(allCreditsHistory.filter(i => i.type === 'credit'));
 }
 
 function renderCreditsTable(list){
