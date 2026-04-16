@@ -626,6 +626,12 @@ input[type="file"] { display: none; }
 .upload-dz-text { font-size: 0.76rem; color: var(--ink-muted); font-family: var(--font-mono); }
 .upload-dz-sub { font-size: 0.66rem; color: var(--ink-subtle); margin-top: 0.2rem; font-family: var(--font-mono); }
 
+/* ── 試用到期升級提示橫幅 ── */
+.upgrade-banner{display:none;position:fixed;top:64px;left:0;right:0;z-index:99;background:linear-gradient(90deg,var(--gold),var(--gold-light));padding:10px 48px;text-align:center;}
+.upgrade-banner-text{font-family:var(--font-mono);font-size:11px;color:white;letter-spacing:0.06em;}
+.upgrade-banner-text a{color:white;font-weight:500;text-decoration:underline;cursor:pointer;}
+.upgrade-banner.show{display:block;}
+
 /* ═══════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════ */
@@ -670,6 +676,13 @@ input[type="file"] { display: none; }
     </div>
   </div>
 </header>
+
+<!-- 試用到期升級提示橫幅 -->
+<div class="upgrade-banner" id="upgradeBanner">
+  <div class="upgrade-banner-text">
+    您的試用點數已用完或到期，<a onclick="window.location.href='/pricing.html'">立即升級方案</a> 繼續使用 AI Staging Pro
+  </div>
+</div>
 
 <section class="hero">
   <div class="hero-content">
@@ -934,11 +947,19 @@ function updateHeaderUI(){
     if(refEl)refEl.textContent=currentProfile?.referral_code||'—';
     const libBtn=document.getElementById('libraryBtn');
     if(libBtn)libBtn.style.display='inline-block';
+    // 試用到期升級提示：role=trial 且點數為 0
+    const banner=document.getElementById('upgradeBanner');
+    if(banner){
+      if(role==='trial'&&credits===0){banner.classList.add('show');}
+      else{banner.classList.remove('show');}
+    }
   }else{
     btn.textContent='登入 / 註冊';btn.classList.remove('logged-in');
     badge.style.display='none';
     const libBtn=document.getElementById('libraryBtn');
     if(libBtn)libBtn.style.display='none';
+    const banner=document.getElementById('upgradeBanner');
+    if(banner) banner.classList.remove('show');
     closeUserMenu();
   }
 }
@@ -1128,14 +1149,7 @@ function processImage(file){
     showToast('您的試用申請審核中，請稍候通知');
     return;
   }
-  // 試用已到期
-  if(role === 'trial' && currentProfile?.trial_expires_at){
-    if(new Date(currentProfile.trial_expires_at) < new Date()){
-      showToast('試用期已到期，請選擇方案繼續使用');
-      setTimeout(()=>window.location.href='/pricing.html', 1500);
-      return;
-    }
-  }
+
   const r=new FileReader();
   r.onload=e=>{
     const rawDataUrl = e.target.result;
@@ -1326,11 +1340,7 @@ async function startGeneration(){
     }catch(e){showToast('點數不足！即將前往購買頁面…');setTimeout(()=>window.location.href='/pricing.html',1500);return;}
   }
   if(userRole==='trial_pending'){showToast('您的試用申請審核中，請稍候通知');return;}
-  if(userRole==='trial'&&currentProfile?.trial_expires_at){
-  if(new Date(currentProfile.trial_expires_at)<new Date()){
-    showToast('試用期已到期，請選擇方案繼續使用');return;
-  }
-}
+
   // 先鎖定按鈕並顯示進度條，讓用戶知道有反應
   const genBtn=document.getElementById('genBtn');
   genBtn.disabled=true;

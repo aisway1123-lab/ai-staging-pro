@@ -195,19 +195,26 @@ async function init(){
 
 async function loadProfile(){
   const { data: profile } = await _sb.from('profiles')
-    .select('role, plan_level, plan_billing, plan_started_at, trial_expires_at')
+    .select('role, plan_level, plan_billing, plan_started_at')
     .eq('id', currentUser.id)
     .single();
+
+  // 取得即時點數判斷試用是否到期
+  let liveCredits = 0;
+  try{
+    const { data: c } = await _sb.rpc('get_available_credits', { p_user_id: currentUser.id });
+    liveCredits = c ?? 0;
+  }catch(e){}
 
   currentProfile = profile;
   document.getElementById('planLoading').style.display = 'none';
   document.getElementById('planContent').style.display = 'block';
 
-  if(!profile){ showPlanInfo('free', null); return; }
-  showPlanInfo(profile.role, profile);
+  if(!profile){ showPlanInfo('free', null, 0); return; }
+  showPlanInfo(profile.role, profile, liveCredits);
 }
 
-function showPlanInfo(role, profile){
+function showPlanInfo(role, profile, credits){
   const nameEl   = document.getElementById('planName');
   const detailEl = document.getElementById('planDetail');
   const cancelEl = document.getElementById('cancelWrap');
@@ -224,11 +231,11 @@ function showPlanInfo(role, profile){
   // 方案詳情
   let detail = '';
   if(role === 'trial'){
-    const exp = profile?.trial_expires_at ? fmtDate(profile.trial_expires_at) : '—';
-    const isExpired = profile?.trial_expires_at && new Date(profile.trial_expires_at) < new Date();
+    // 用 credits 判斷試用是否到期，不依賴 trial_expires_at
+    const isExpired = credits === 0;
     detail = isExpired
-      ? `試用已到期，請 <a href="/pricing.html" style="color:var(--green);font-weight:500;">選擇方案</a> 繼續使用。`
-      : `試用到期日：<span>${exp}</span>`;
+      ? `試用點數已用完或到期，請 <a href="/pricing.html" style="color:var(--green);font-weight:500;">選擇方案</a> 繼續使用。`
+      : `試用中，剩餘 <span>${credits} 點</span>`;
   } else if(role === 'subscriber' && profile?.plan_billing){
     const started = profile?.plan_started_at ? fmtDate(profile.plan_started_at) : '—';
     detail = `訂閱開始日：<span>${started}</span>`;
