@@ -118,6 +118,49 @@ export default async function handler(req, res) {
 </html>`;
   }
 
+  // ── 點數包到期提醒 ──
+  else if (type === 'pack_expiring') {
+    const daysLeft  = data?.daysLeft || 7;
+    const credits   = data?.credits || 0;
+    const expiresAt = data?.expiresAt || '';
+    subject = `【AI Staging Pro】您的點數包將於 ${daysLeft} 天後到期`;
+    html = `
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F7F5F0;font-family:'DM Sans',sans-serif;">
+  <div style="max-width:560px;margin:40px auto;background:#ffffff;border:1px solid rgba(26,26,24,0.1);">
+    <div style="background:#A8844A;padding:32px;text-align:center;">
+      <div style="color:rgba(255,255,255,0.7);font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;">AI STAGING PRO</div>
+      <div style="color:white;font-size:22px;font-weight:500;">點數包即將到期 ⏰</div>
+    </div>
+    <div style="padding:40px 36px;">
+      <p style="font-size:15px;color:#3D3D3A;line-height:1.8;margin-bottom:20px;">
+        您購買的點數包將於 <strong style="color:#A8844A;">${daysLeft} 天後（${expiresAt}）</strong>到期，目前剩餘 <strong style="color:#2C4A3E;">${credits} 點</strong>。
+      </p>
+      <p style="font-size:13px;color:#3D3D3A;line-height:1.8;margin-bottom:24px;">
+        點數到期後將自動歸零，未使用點數恕不退款。如需繼續使用，建議於到期前完成生成或購買新的點數包。
+      </p>
+      <div style="text-align:center;margin-bottom:28px;">
+        <a href="https://www.aistaging.pro" style="display:inline-block;background:#2C4A3E;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;margin-right:8px;">
+          立即使用點數
+        </a>
+        <a href="https://www.aistaging.pro/pricing.html" style="display:inline-block;background:transparent;color:#2C4A3E;border:1px solid #2C4A3E;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
+          購買點數包
+        </a>
+      </div>
+      <p style="font-size:13px;color:#8A8880;line-height:1.8;">
+        如有問題請聯繫：LINE <a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
+      </p>
+    </div>
+    <div style="background:#F0EDE6;padding:20px;text-align:center;border-top:1px solid rgba(26,26,24,0.1);">
+      <div style="font-size:11px;color:#8A8880;">AI Staging Pro｜空屋變夢想家</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
   else {
     return res.status(400).json({ error: '不支援的 email 類型' });
   }
