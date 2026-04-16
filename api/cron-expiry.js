@@ -35,13 +35,86 @@ export default async function handler(req, res) {
 
     console.log('點數到期清算完成:', expiryResult);
 
-    // TODO：到期前 7 天提醒 Email（V7 後續實作）
-    // 目前只做清算，提醒 Email 待 send-email.js 新增 trial_expiring 觸發邏輯後一起接上
+    // ── 到期前 7 天提醒 Email ──
+    // 找出 7 天後到期、尚未發過提醒、type 為 trial 或 pack 的記錄
+    const reminderTarget = new Date();
+    reminderTarget.setDate(reminderTarget.getDate() + 7);
+    const reminderStart = new Date(reminderTarget);
+    reminderStart.setHours(0, 0, 0, 0);
+    const reminderEnd = new Date(reminderTarget);
+    reminderEnd.setHours(23, 59, 59, 999);
+
+    const { data: pendingReminders } = await supabase
+      .from('credit_logs')
+      .select('id, user_id, type, amount, expires_at')
+      .in('type', ['trial', 'pack'])
+      .gte('expires_at', reminderStart.toISOString())
+      .lte('expires_at', reminderEnd.toISOString())
+      .is('reminder_sent_at', null)
+      .gt('amount', 0);
+
+    let reminderCount = 0;
+    const SITE_URL = process.env.SITE_URL || 'https://www.aistaging.pro';
+
+    for (const log of (pendingReminders || [])) {
+      try {
+        // 取得用戶 email
+        const { data: userData } = await supabase.auth.admin.getUserById(log.user_id);
+        const email = userData?.user?.email;
+        if (!email) continue;
+
+        // 計算剩餘點數（只計算這筆的剩餘，不是全部可用點數）
+        const { data: consumed } = await supabase
+          .from('credit_logs')
+          .select('amount')
+          .eq('source_log_id', log.id)
+          .lt('amount', 0);
+        const usedAmount = (consumed || []).reduce((sum, c) => sum + Math.abs(c.amount), 0);
+        const remainingCredits = Math.max(log.amount - usedAmount, 0);
+
+        // 格式化到期日（台灣時間）
+        const expDate = new Date(log.expires_at);
+        const expiresAt = `${expDate.getFullYear()}-${String(expDate.getMonth()+1).padStart(2,'0')}-${String(expDate.getDate()).padStart(2,'0')}`;
+
+        // 寄提醒信
+        const emailType = log.type === 'trial' ? 'trial_expiring' : 'pack_expiring';
+        const emailRes = await fetch(`${SITE_URL}/api/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: emailType,
+            to:   email,
+            data: {
+              daysLeft:  7,
+              credits:   remainingCredits,
+              expiresAt: expiresAt
+            }
+          })
+        });
+
+        if (emailRes.ok) {
+          // 標記已發送提醒
+          await supabase
+            .from('credit_logs')
+            .update({ reminder_sent_at: new Date().toISOString() })
+            .eq('id', log.id);
+          reminderCount++;
+          console.log(`提醒信已寄送：${email}（${log.type}，到期 ${expiresAt}）`);
+        } else {
+          console.warn(`提醒信寄送失敗：${email}`);
+        }
+      } catch (e) {
+        console.warn(`處理提醒失敗（user: ${log.user_id}）:`, e.message);
+      }
+    }
+
+    console.log(`到期提醒完成，共發送 ${reminderCount} 封`);
 
     return res.status(200).json({
-      success: true,
-      result:  expiryResult,
-      ran_at:  new Date().toISOString()
+      success:        true,
+      result:         expiryResult,
+      reminders_sent: reminderCount,
+      ran_at:         new Date().toISOString()
     });
 
   } catch (err) {
