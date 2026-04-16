@@ -253,7 +253,7 @@ async function sendResetEmail(){
   btn.textContent = '發送中…';
   try{
     const { error } = await _sb.auth.resetPasswordForEmail(currentUser.email, {
-      redirectTo: window.location.origin
+      redirectTo: `${window.location.origin}/reset-password.html`
     });
     if(error) throw error;
     document.getElementById('pwSuccess').style.display = 'block';
