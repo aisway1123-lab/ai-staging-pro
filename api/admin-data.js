@@ -97,13 +97,12 @@ export default async function handler(req, res) {
 
       const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      // 更新 role 和 trial_expires_at（保留 trial_expires_at 供現有前台邏輯使用）
+      // 更新 role（trial_expires_at 已不再使用，點數到期由 credit_logs 管理）
       const { error: updateErr } = await supabase
         .from('profiles')
         .update({
-          role:             'trial',
-          trial_expires_at: trialExpiresAt,
-          updated_at:       new Date().toISOString()
+          role:       'trial',
+          updated_at: new Date().toISOString()
         })
         .eq('id', userId);
 
