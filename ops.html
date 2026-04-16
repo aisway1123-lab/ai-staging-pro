@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operations Dashboard｜AI Staging Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  window.SUPABASE_URL      = "https://jyvojuswdruexgxsxarl.supabase.co";
+  window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5dm9qdXN3ZHJ1ZXhneHN4YXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTM2ODAsImV4cCI6MjA5MDE2OTY4MH0.6FL0eBQmXV9_vziTVyTqjiKB1UL32Jaw1ypel41jm1E";
+</script>
+<style>
+:root{
+  --bg:#0F1117;--bg-2:#1A1D27;--bg-3:#232635;
+  --ink:#E8E8F0;--ink-2:#A0A0B8;--ink-muted:#6B6B88;
+  --green:#2ECC71;--red:#E74C3C;--yellow:#F39C12;--blue:#3498DB;
+  --border:rgba(255,255,255,0.08);
+  --font-body:'DM Sans',sans-serif;
+  --font-mono:'DM Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-weight:300;min-height:100vh;-webkit-font-smoothing:antialiased;}
+
+header{padding:16px 32px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.header-title{font-family:var(--font-mono);font-size:13px;letter-spacing:0.1em;color:var(--ink-2);}
+.header-title span{color:var(--ink);font-weight:500;}
+.refresh-btn{padding:6px 14px;background:var(--bg-3);border:1px solid var(--border);color:var(--ink-2);font-family:var(--font-mono);font-size:11px;cursor:pointer;transition:all 0.2s;letter-spacing:0.06em;}
+.refresh-btn:hover{border-color:var(--blue);color:var(--blue);}
+.last-updated{font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);}
+
+.main{padding:24px 32px;}
+.section-label{font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:12px;margin-top:28px;}
+.section-label:first-child{margin-top:0;}
+
+/* 狀態卡片 */
+.status-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:4px;}
+.status-card{background:var(--bg-2);border:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:12px;}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.status-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+.status-dot.warn{background:var(--yellow);box-shadow:0 0 6px var(--yellow);}
+.status-dot.error{background:var(--red);box-shadow:0 0 6px var(--red);}
+.status-dot.checking{background:var(--ink-muted);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.status-name{font-family:var(--font-mono);font-size:11px;color:var(--ink-2);flex:1;}
+.status-label{font-family:var(--font-mono);font-size:10px;}
+.status-label.ok{color:var(--green);}
+.status-label.warn{color:var(--yellow);}
+.status-label.error{color:var(--red);}
+.status-label.checking{color:var(--ink-muted);}
+
+/* 數字統計 */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.metric-card{background:var(--bg-2);border:1px solid var(--border);padding:16px;}
+.metric-num{font-family:var(--font-mono);font-size:1.8rem;font-weight:500;color:var(--ink);line-height:1;}
+.metric-label{font-family:var(--font-mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-muted);margin-top:6px;}
+.metric-sub{font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);margin-top:4px;}
+
+/* 訂單表格 */
+.table-wrap{background:var(--bg-2);border:1px solid var(--border);overflow:hidden;}
+table{width:100%;border-collapse:collapse;}
+th{padding:10px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-muted);text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3);}
+td{padding:10px 14px;font-family:var(--font-mono);font-size:11px;color:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.04);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+.badge{font-size:9px;padding:2px 7px;letter-spacing:0.06em;border-radius:2px;}
+.badge-paid{background:rgba(46,204,113,0.15);color:var(--green);}
+.badge-pending{background:rgba(243,156,18,0.15);color:var(--yellow);}
+.badge-failed{background:rgba(231,76,60,0.15);color:var(--red);}
+
+/* 用量條 */
+.usage-item{background:var(--bg-2);border:1px solid var(--border);padding:14px 16px;margin-bottom:8px;}
+.usage-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.usage-name{font-family:var(--font-mono);font-size:11px;color:var(--ink-2);}
+.usage-val{font-family:var(--font-mono);font-size:11px;color:var(--ink);}
+.usage-bar-bg{height:4px;background:var(--bg-3);border-radius:2px;overflow:hidden;}
+.usage-bar-fill{height:100%;border-radius:2px;transition:width 0.5s;}
+.usage-bar-fill.ok{background:var(--green);}
+.usage-bar-fill.warn{background:var(--yellow);}
+.usage-bar-fill.error{background:var(--red);}
+.usage-note{font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);margin-top:5px;}
+
+#authGate{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:1rem;}
+.auth-box{background:var(--bg-2);border:1px solid var(--border);padding:2rem;text-align:center;max-width:320px;}
+.auth-box p{font-family:var(--font-mono);font-size:12px;color:var(--ink-2);margin-bottom:1rem;}
+.auth-box a{color:var(--blue);text-decoration:none;font-family:var(--font-mono);font-size:11px;}
+
+@media(max-width:768px){
+  header{padding:12px 16px;}
+  .main{padding:16px;}
+  .metrics-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<div id="authGate" style="display:none;">
+  <div class="auth-box">
+    <p>此頁面僅限 admin 存取</p>
+    <a href="/">← 返回首頁</a>
+  </div>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <header>
+    <div>
+      <div class="header-title">AI Staging Pro — <span>Operations Dashboard</span></div>
+      <div class="last-updated" id="lastUpdated">—</div>
+    </div>
+    <button class="refresh-btn" onclick="loadAll()">↻ 重新整理</button>
+  </header>
+
+  <div class="main">
+
+    <!-- 服務狀態 -->
+    <div class="section-label">服務狀態</div>
+    <div class="status-grid">
+      <div class="status-card"><div class="status-dot checking" id="dot-supabase"></div><div class="status-name">Supabase DB</div><div class="status-label checking" id="lbl-supabase">檢查中</div></div>
+      <div class="status-card"><div class="status-dot checking" id="dot-vercel"></div><div class="status-name">Vercel API</div><div class="status-label checking" id="lbl-vercel">檢查中</div></div>
+      <div class="status-card"><div class="status-dot checking" id="dot-fal"></div><div class="status-name">fal.ai</div><div class="status-label checking" id="lbl-fal">檢查中</div></div>
+      <div class="status-card"><div class="status-dot checking" id="dot-resend"></div><div class="status-name">Resend Email</div><div class="status-label checking" id="lbl-resend">檢查中</div></div>
+      <div class="status-card"><div class="status-dot checking" id="dot-newebpay"></div><div class="status-name">藍新金流</div><div class="status-label checking" id="lbl-newebpay">檢查中</div></div>
+    </div>
+
+    <!-- 平台數據 -->
+    <div class="section-label">平台數據</div>
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-num" id="m-total-users">—</div><div class="metric-label">總用戶數</div></div>
+      <div class="metric-card"><div class="metric-num" id="m-trial-users">—</div><div class="metric-label">試用中</div></div>
+      <div class="metric-card"><div class="metric-num" id="m-subscriber">—</div><div class="metric-label">訂閱用戶</div></div>
+      <div class="metric-card"><div class="metric-num" id="m-pending">—</div><div class="metric-label">待審核申請</div></div>
+      <div class="metric-card"><div class="metric-num" id="m-total-gen">—</div><div class="metric-label">總生成次數</div></div>
+      <div class="metric-card"><div class="metric-num" id="m-today-gen">—</div><div class="metric-label">今日生成</div></div>
+      <div class="metric-card"><div class="metric-num" id="m-total-revenue">—</div><div class="metric-label">累計收款</div><div class="metric-sub" id="m-revenue-sub">NT$</div></div>
+      <div class="metric-card"><div class="metric-num" id="m-stuck">—</div><div class="metric-label">卡住任務</div></div>
+    </div>
+
+    <!-- 用量監控 -->
+    <div class="section-label">用量監控</div>
+    <div id="usageSection">
+      <div class="usage-item">
+        <div class="usage-header"><span class="usage-name">Supabase Storage</span><span class="usage-val" id="u-storage-val">計算中…</span></div>
+        <div class="usage-bar-bg"><div class="usage-bar-fill ok" id="u-storage-bar" style="width:0%"></div></div>
+        <div class="usage-note">免費額度：1 GB｜超出後 $0.021/GB/月</div>
+      </div>
+      <div class="usage-item">
+        <div class="usage-header"><span class="usage-name">Supabase DB 筆數</span><span class="usage-val" id="u-db-val">計算中…</span></div>
+        <div class="usage-bar-bg"><div class="usage-bar-fill ok" id="u-db-bar" style="width:0%"></div></div>
+        <div class="usage-note">credit_logs + generation_logs + orders 總筆數</div>
+      </div>
+      <div class="usage-item">
+        <div class="usage-header"><span class="usage-name">Resend 本月寄信</span><span class="usage-val" id="u-resend-val">—</span></div>
+        <div class="usage-bar-bg"><div class="usage-bar-fill ok" id="u-resend-bar" style="width:0%"></div></div>
+        <div class="usage-note">免費額度：每月 3,000 封｜每日 100 封上限</div>
+      </div>
+    </div>
+
+    <!-- 最近訂單 -->
+    <div class="section-label">最近訂單（最新 10 筆）</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>訂單編號</th><th>方案</th><th>金額</th><th>狀態</th><th>時間</th></tr></thead>
+        <tbody id="ordersTable"><tr><td colspan="5" style="text-align:center;color:var(--ink-muted);">載入中…</td></tr></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+let currentUser = null;
+
+const PLAN_LABELS = {
+  mini_monthly:'迷你月費', standard_monthly:'標準月費',
+  mini_yearly:'迷你年費', standard_yearly:'標準年費',
+  credits_100:'入門點數包', credits_300:'標準點數包', credits_600:'超值點數包',
+};
+
+async function init(){
+  const { data:{ session } } = await _sb.auth.getSession();
+  if(!session?.user){ document.getElementById('authGate').style.display='flex'; return; }
+  currentUser = session.user;
+
+  // 驗證是否為 admin
+  const { data: profile } = await _sb.from('profiles').select('role').eq('id', currentUser.id).single();
+  if(profile?.role !== 'admin'){
+    document.getElementById('authGate').style.display='flex';
+    return;
+  }
+
+  document.getElementById('mainContent').style.display='block';
+  loadAll();
+
+  _sb.auth.onAuthStateChange(async(event) => {
+    if(event === 'SIGNED_OUT' || event === 'TOKEN_REFRESH_FAILED') window.location.href = '/';
+  });
+}
+
+async function loadAll(){
+  document.getElementById('lastUpdated').textContent = '更新中…';
+  await Promise.all([
+    checkServices(),
+    loadMetrics(),
+    loadOrders(),
+    loadUsage(),
+  ]);
+  document.getElementById('lastUpdated').textContent = '最後更新：' + new Date().toLocaleTimeString('zh-TW');
+}
+
+// ── 服務狀態檢查 ──
+function setStatus(id, status, label){
+  const dot = document.getElementById('dot-'+id);
+  const lbl = document.getElementById('lbl-'+id);
+  dot.className = 'status-dot ' + status;
+  lbl.className = 'status-label ' + status;
+  lbl.textContent = label;
+}
+
+async function checkServices(){
+  // Supabase：查一筆 profiles
+  try{
+    const { error } = await _sb.from('profiles').select('id').limit(1);
+    setStatus('supabase', error ? 'error' : 'ok', error ? '異常' : '正常');
+  }catch(e){ setStatus('supabase','error','無法連線'); }
+
+  // Vercel：呼叫一個輕量 API
+  try{
+    const r = await fetch('/api/send-email', { method:'OPTIONS' });
+    setStatus('vercel', r.status < 500 ? 'ok' : 'error', r.status < 500 ? '正常' : '異常');
+  }catch(e){ setStatus('vercel','error','無法連線'); }
+
+  // fal.ai：ping fal.run
+  try{
+    const r = await fetch('https://fal.run', { method:'HEAD', mode:'no-cors' });
+    setStatus('fal','ok','正常');
+  }catch(e){ setStatus('fal','warn','無法驗證'); }
+
+  // Resend：ping resend.com
+  try{
+    await fetch('https://api.resend.com', { method:'HEAD', mode:'no-cors' });
+    setStatus('resend','ok','正常');
+  }catch(e){ setStatus('resend','warn','無法驗證'); }
+
+  // 藍新：ping newebpay.com
+  try{
+    await fetch('https://core.newebpay.com', { method:'HEAD', mode:'no-cors' });
+    setStatus('newebpay','ok','正常');
+  }catch(e){ setStatus('newebpay','warn','無法驗證'); }
+}
+
+// ── 平台數據 ──
+async function loadMetrics(){
+  const [profilesRes, genRes, todayGenRes, ordersRes, stuckRes, pendingRes] = await Promise.all([
+    _sb.from('profiles').select('role'),
+    _sb.from('generation_logs').select('id', { count:'exact', head:true }),
+    _sb.from('generation_logs').select('id', { count:'exact', head:true })
+      .gte('created_at', new Date().toISOString().slice(0,10)),
+    _sb.from('orders').select('amount').eq('status','paid'),
+    _sb.from('profiles').select('id', { count:'exact', head:true }).eq('is_generating', true),
+    _sb.from('profiles').select('id', { count:'exact', head:true }).eq('role', 'trial_pending'),
+  ]);
+
+  const profiles = profilesRes.data || [];
+  document.getElementById('m-total-users').textContent = profiles.length;
+  document.getElementById('m-trial-users').textContent = profiles.filter(p=>p.role==='trial').length;
+  document.getElementById('m-subscriber').textContent = profiles.filter(p=>p.role==='subscriber').length;
+  document.getElementById('m-pending').textContent = pendingRes.count ?? 0;
+  document.getElementById('m-total-gen').textContent = genRes.count ?? 0;
+  document.getElementById('m-today-gen').textContent = todayGenRes.count ?? 0;
+
+  const totalRevenue = (ordersRes.data||[]).reduce((s,o)=>s+(o.amount||0),0);
+  document.getElementById('m-total-revenue').textContent = totalRevenue.toLocaleString();
+  document.getElementById('m-revenue-sub').textContent = `NT$ ${(ordersRes.data||[]).length} 筆`;
+
+  document.getElementById('m-stuck').textContent = stuckRes.count ?? 0;
+  if((stuckRes.count||0) > 0){
+    document.getElementById('m-stuck').style.color = 'var(--yellow)';
+  }
+}
+
+// ── 用量監控 ──
+async function loadUsage(){
+  // DB 筆數
+  const [clRes, glRes, ordRes] = await Promise.all([
+    _sb.from('credit_logs').select('id', { count:'exact', head:true }),
+    _sb.from('generation_logs').select('id', { count:'exact', head:true }),
+    _sb.from('orders').select('id', { count:'exact', head:true }),
+  ]);
+  const totalRows = (clRes.count||0) + (glRes.count||0) + (ordRes.count||0);
+  const dbPct = Math.min(Math.round(totalRows / 500000 * 100), 100); // 假設 50萬筆警戒線
+  document.getElementById('u-db-val').textContent = totalRows.toLocaleString() + ' 筆';
+  setBar('u-db-bar', dbPct);
+
+  // Storage：用 generation_logs 有圖片的筆數估算
+  const { count: fileCount } = await _sb.from('generation_logs')
+    .select('id', { count:'exact', head:true })
+    .not('image_url', 'is', null);
+  const estMB = (fileCount||0) * 3; // 估算每組約 3MB（圖+影片）
+  const storagePct = Math.min(Math.round(estMB / 1024 * 100), 100);
+  document.getElementById('u-storage-val').textContent = `~${estMB} MB / 1,024 MB`;
+  setBar('u-storage-bar', storagePct);
+
+  // Resend：無法直接查，顯示提示
+  document.getElementById('u-resend-val').textContent = '請至 Resend Dashboard 查看';
+  document.getElementById('u-resend-bar').style.width = '0%';
+}
+
+function setBar(id, pct){
+  const bar = document.getElementById(id);
+  bar.style.width = pct + '%';
+  bar.className = 'usage-bar-fill ' + (pct >= 90 ? 'error' : pct >= 70 ? 'warn' : 'ok');
+}
+
+// ── 最近訂單 ──
+async function loadOrders(){
+  const { data: orders } = await _sb.from('orders')
+    .select('order_no, plan_type, amount, status, created_at, paid_at')
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  const tbody = document.getElementById('ordersTable');
+  if(!orders || orders.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--ink-muted);">暫無訂單</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = orders.map(o => {
+    const statusClass = o.status==='paid'?'paid':o.status==='pending'?'pending':'failed';
+    const statusText = o.status==='paid'?'已付款':o.status==='pending'?'待付款':'失敗';
+    const date = new Date(o.paid_at||o.created_at);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+    return `<tr>
+      <td style="color:var(--ink-muted);font-size:10px;">${o.order_no?.slice(-12)||'—'}</td>
+      <td>${PLAN_LABELS[o.plan_type]||o.plan_type||'—'}</td>
+      <td>NT$${(o.amount||0).toLocaleString()}</td>
+      <td><span class="badge badge-${statusClass}">${statusText}</span></td>
+      <td style="color:var(--ink-muted);font-size:10px;">${dateStr}</td>
+    </tr>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>
