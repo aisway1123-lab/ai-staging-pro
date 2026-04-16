@@ -151,7 +151,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ profiles: profiles || [], logCount: logCount || 0 });
     }
 
-    // ── 取得所有會員（V7：credits 改用 get_available_credits 即時計算）──
+    // ── 取得所有會員（V7：credits 改用 get_credits_batch 一次查詢）──
     if (action === 'getMembers') {
       const { data: members } = await supabase
         .from('profiles')
@@ -160,14 +160,18 @@ export default async function handler(req, res) {
 
       if (!members || members.length === 0) return res.status(200).json({ members: [] });
 
-      // 逐一取得有效點數（用戶數少時可接受，日後可改 batch 查詢）
-      const membersWithCredits = await Promise.all(
-        members.map(async (m) => {
-          const { data: creditsData } = await supabase
-            .rpc('get_available_credits', { p_user_id: m.id });
-          return { ...m, credits: creditsData ?? 0 };
-        })
-      );
+      // Batch 查詢所有用戶點數（一次 DB 查詢取代 N 次）
+      const userIds = members.map(m => m.id);
+      const { data: creditRows } = await supabase
+        .rpc('get_credits_batch', { p_user_ids: userIds });
+
+      const creditsMap = {};
+      (creditRows || []).forEach(r => { creditsMap[r.user_id] = r.credits; });
+
+      const membersWithCredits = members.map(m => ({
+        ...m,
+        credits: creditsMap[m.id] ?? 0
+      }));
 
       return res.status(200).json({ members: membersWithCredits });
     }
