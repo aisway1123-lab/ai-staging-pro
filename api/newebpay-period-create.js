@@ -9,12 +9,8 @@ const MERCHANT_ID = process.env.NEWEBPAY_MERCHANT_ID;
 const HASH_KEY    = process.env.NEWEBPAY_HASH_KEY;
 const HASH_IV     = process.env.NEWEBPAY_HASH_IV;
 const SITE_URL    = process.env.SITE_URL;
-const IS_PROD     = process.env.VERCEL_ENV === 'production';
-
-// 正式 / 測試端點
-const PERIOD_URL = IS_PROD
-  ? 'https://core.newebpay.com/MPG/period'
-  : 'https://ccore.newebpay.com/MPG/period';
+// 正式端點（個人帳號無測試環境）
+const PERIOD_URL = 'https://core.newebpay.com/MPG/period';
 
 // 方案設定
 const PLANS = {
