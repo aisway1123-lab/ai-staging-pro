@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, error: '身份驗證失敗' });
   }
 
-  // ── 從 profiles 取得 period_no 和 merchant_order_no ──
+  // ── 從 profiles 取得 period_no ──
   const { data: profile, error: profileErr } = await supabase
     .from('profiles')
     .select('period_no, role, plan_level, plan_billing')
@@ -85,10 +85,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: '找不到委託單號，請聯繫客服' });
   }
 
-  // ── 從 orders 取得 merchant_order_no ──
+  // ── 從 orders 取得 order_no ──
   const { data: order, error: orderErr } = await supabase
     .from('orders')
-    .select('merchant_order_no')
+    .select('order_no')
     .eq('user_id', user.id)
     .eq('status', 'paid')
     .eq('order_type', 'subscription')
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
     RespondType: 'JSON',
     TimeStamp:   String(timestamp),
     Version:     '1.0',
-    MerOrderNo:  order.merchant_order_no,
+    MerOrderNo:  order.order_no,
     PeriodNo:    profile.period_no,
     AlterType:   'terminate',
   };
@@ -170,7 +170,7 @@ export default async function handler(req, res) {
   await supabase
     .from('orders')
     .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-    .eq('merchant_order_no', order.merchant_order_no);
+    .eq('order_no', order.order_no);
 
   return res.status(200).json({
     success: true,

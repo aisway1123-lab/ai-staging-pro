@@ -81,15 +81,12 @@ export default async function handler(req, res) {
 
   // ── 寫入 orders 表（pending 狀態），同時儲存 planId / referralCode ──
   const { error: insertErr } = await supabase.from('orders').insert({
-    user_id:            userId,
-    merchant_order_no:  merchantOrderNo,
-    amount:             plan.amt,
-    plan_id:            planId,
-    plan_level:         plan.level,
-    plan_billing:       plan.billing,
-    referral_code_used: referralCode || null,
-    status:             'pending',
-    order_type:         'subscription',  // 區分定期定額 vs 點數包
+    user_id:    userId,
+    order_no:   merchantOrderNo,
+    amount:     plan.amt,
+    plan_type:  planId,        // 存完整 planId，例如 mini_monthly
+    status:     'pending',
+    order_type: 'subscription',
   });
 
   if (insertErr) {

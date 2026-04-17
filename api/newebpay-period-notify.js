@@ -84,11 +84,11 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  // ── 查詢訂單取得 user_id / plan_billing / plan_level ──
+  // ── 查詢訂單取得 user_id / plan_type ──
   const { data: order, error: orderErr } = await supabase
     .from('orders')
-    .select('user_id, plan_billing, plan_level, plan_id, status')
-    .eq('merchant_order_no', MerchantOrderNo)
+    .select('user_id, plan_type, status')
+    .eq('order_no', MerchantOrderNo)
     .single();
 
   if (orderErr || !order) {
@@ -96,7 +96,11 @@ export default async function handler(req, res) {
     return res.status(400).send('Order not found');
   }
 
-  const { user_id, plan_billing, plan_level } = order;
+  const { user_id } = order;
+  // plan_type 例如 mini_monthly / standard_yearly
+  const planType   = order.plan_type || '';
+  const plan_level   = planType.startsWith('standard') ? 'standard' : 'mini';
+  const plan_billing = planType.endsWith('yearly') ? 'yearly' : 'monthly';
   const alreadyTimes = parseInt(AlreadyTimes, 10) || 1;
 
   // ── 冪等保護：用 PeriodNo + AlreadyTimes 防止重複寫入 ──
@@ -120,7 +124,7 @@ export default async function handler(req, res) {
     standard_monthly: 1000,
     standard_yearly:  12000,
   };
-  const creditsToAdd = creditsMap[order.plan_id] || 0;
+  const creditsToAdd = creditsMap[planType] || 0;
   const expiresAt    = calcExpiresAt(plan_billing);
 
   // ── 寫入 credit_logs ──
@@ -160,7 +164,7 @@ export default async function handler(req, res) {
     await supabase
       .from('orders')
       .update({ status: 'paid', paid_at: new Date().toISOString() })
-      .eq('merchant_order_no', MerchantOrderNo);
+      .eq('order_no', MerchantOrderNo);
   }
 
   console.log(`[period-notify] 完成 user=${user_id} credits+${creditsToAdd} period=${alreadyTimes}`);
