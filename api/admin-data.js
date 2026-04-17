@@ -151,7 +151,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ profiles: profiles || [], logCount: logCount || 0 });
     }
 
-    // ── 取得所有會員（V7：credits 改用 get_credits_batch 一次查詢）──
+    // ── 取得所有會員（V7：credits 改用 get_available_credits 即時計算）──
     if (action === 'getMembers') {
       const { data: members } = await supabase
         .from('profiles')
@@ -160,18 +160,14 @@ export default async function handler(req, res) {
 
       if (!members || members.length === 0) return res.status(200).json({ members: [] });
 
-      // Batch 查詢所有用戶點數（一次 DB 查詢取代 N 次）
-      const userIds = members.map(m => m.id);
-      const { data: creditRows } = await supabase
-        .rpc('get_credits_batch', { p_user_ids: userIds });
-
-      const creditsMap = {};
-      (creditRows || []).forEach(r => { creditsMap[r.user_id] = r.credits; });
-
-      const membersWithCredits = members.map(m => ({
-        ...m,
-        credits: creditsMap[m.id] ?? 0
-      }));
+      // 逐一取得有效點數（用戶數少時可接受，日後可改 batch 查詢）
+      const membersWithCredits = await Promise.all(
+        members.map(async (m) => {
+          const { data: creditsData } = await supabase
+            .rpc('get_available_credits', { p_user_id: m.id });
+          return { ...m, credits: creditsData ?? 0 };
+        })
+      );
 
       return res.status(200).json({ members: membersWithCredits });
     }
@@ -211,6 +207,51 @@ export default async function handler(req, res) {
       }));
 
       return res.status(200).json({ logs: logsWithEmail });
+    }
+
+    // ── 取得最近訂單（含 email，供 ops.html 使用）──
+    if (action === 'getRecentOrders') {
+      const [paidRes, pendingRes] = await Promise.all([
+        supabase.from('orders').select('order_no, user_id, plan_type, amount, status, created_at, paid_at')
+          .eq('status', 'paid').order('paid_at', { ascending: false }).limit(10),
+        supabase.from('orders').select('order_no, user_id, plan_type, amount, status, created_at, paid_at')
+          .eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
+      ]);
+
+      const orders = [...(paidRes.data || []), ...(pendingRes.data || [])];
+      const userIds = [...new Set(orders.map(o => o.user_id))];
+
+      const { data: profiles } = await supabase.from('profiles').select('id, email').in('id', userIds);
+      const emailMap = {};
+      (profiles || []).forEach(p => { emailMap[p.id] = p.email; });
+
+      const ordersWithEmail = orders.map(o => ({ ...o, email: emailMap[o.user_id] || null }));
+      return res.status(200).json({ orders: ordersWithEmail });
+    }
+
+    // ── 訂單搜尋（用訂單號或 email，供 ops.html 使用）──
+    if (action === 'searchOrder') {
+      const { query } = req.body;
+      if (!query) return res.status(400).json({ error: '缺少查詢參數' });
+
+      if (query.includes('@')) {
+        // 用 email 查
+        const { data: p } = await supabase.from('profiles')
+          .select('id, email, role, credits').eq('email', query).single();
+        if (!p) return res.status(200).json({ message: '找不到此 Email 的用戶。' });
+
+        const { data: orders } = await supabase.from('orders')
+          .select('*').eq('user_id', p.id).order('created_at', { ascending: false }).limit(5);
+        return res.status(200).json({ type: 'email', profile: p, orders: orders || [] });
+      } else {
+        // 用訂單號查
+        const { data: o } = await supabase.from('orders').select('*').eq('order_no', query).single();
+        if (!o) return res.status(200).json({ message: '找不到此訂單號，請確認是否完整。' });
+
+        const { data: p } = await supabase.from('profiles')
+          .select('email, role, credits').eq('id', o.user_id).single();
+        return res.status(200).json({ type: 'order', order: o, profile: p });
+      }
     }
 
     return res.status(400).json({ error: '無效的 action' });
