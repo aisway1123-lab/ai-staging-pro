@@ -14,10 +14,10 @@ const PERIOD_URL = 'https://core.newebpay.com/MPG/period';
 
 // 方案設定
 const PLANS = {
-  mini_monthly:     { amt: 899,   periodType: 'M', level: 'mini',     billing: 'monthly' },
-  mini_yearly:      { amt: 8990,  periodType: 'Y', level: 'mini',     billing: 'yearly'  },
-  standard_monthly: { amt: 1980,  periodType: 'M', level: 'standard', billing: 'monthly' },
-  standard_yearly:  { amt: 19800, periodType: 'Y', level: 'standard', billing: 'yearly'  },
+  mini_monthly:     { amt: 899,   periodType: 'M', level: 'mini',     billing: 'monthly', credits: 300  },
+  mini_yearly:      { amt: 8990,  periodType: 'Y', level: 'mini',     billing: 'yearly',  credits: 3600 },
+  standard_monthly: { amt: 1980,  periodType: 'M', level: 'standard', billing: 'monthly', credits: 1000 },
+  standard_yearly:  { amt: 19800, periodType: 'Y', level: 'standard', billing: 'yearly',  credits: 12000},
 };
 
 // AES-256-CBC 加密（與一次付清相同邏輯）
@@ -84,7 +84,8 @@ export default async function handler(req, res) {
     user_id:    userId,
     order_no:   merchantOrderNo,
     amount:     plan.amt,
-    plan_type:  planId,        // 存完整 planId，例如 mini_monthly
+    plan_type:  planId,
+    credits:    plan.credits,
     status:     'pending',
     order_type: 'subscription',
   });
