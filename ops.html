@@ -380,7 +380,7 @@ async function loadOrders(){
     const statusText  = o.status==='paid'?'已付款':o.status==='pending'?'待付款':'失敗';
     const dateStr = fmtTW(o.paid_at || o.created_at);
     return `<tr>
-      <td style="font-size:10px;">${o.order_no?.slice(-12)||'—'}</td>
+      <td style="font-size:10px;">${o.order_no||'—'}</td>
       <td style="color:var(--ink);">${o.email||'—'}</td>
       <td>${PLAN_LABELS[o.plan_type]||o.plan_type||'—'}</td>
       <td>NT$${(o.amount||0).toLocaleString()}</td>
