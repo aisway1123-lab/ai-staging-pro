@@ -123,9 +123,9 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
         <div class="cancel-title">取消訂閱</div>
         <button class="cancel-btn" onclick="showCancelInfo()">申請取消訂閱</button>
         <div class="cancel-info" id="cancelInfo">
-          <p>如需取消訂閱，請透過 LINE 客服聯繫我們，將由專人為您處理。<br>
-          LINE：<a href="https://line.me/R/ti/p/@536vcequ">@536vcequ</a><br><br>
-          取消後服務將持續至本期結束，不退差額。</p>
+          <p>取消後服務將持續至本期結束，不退差額。</p>
+          <button class="cancel-btn" id="cancelConfirmBtn" onclick="cancelSubscription()" style="margin-top:0.8rem;">確認取消訂閱</button>
+          <p style="margin-top:0.8rem;font-size:11px;color:var(--ink-muted);">如遇問題請聯繫 LINE 客服：<a href="https://line.me/R/ti/p/@536vcequ">@536vcequ</a></p>
         </div>
       </div>
     </div>
@@ -252,6 +252,38 @@ function showPlanInfo(role, profile, credits){
 function showCancelInfo(){
   const info = document.getElementById('cancelInfo');
   info.style.display = info.style.display === 'block' ? 'none' : 'block';
+}
+
+async function cancelSubscription(){
+  const btn = document.getElementById('cancelConfirmBtn');
+  if(!btn || btn.disabled) return;
+  if(!confirm('確定要取消訂閱嗎？取消後服務持續至本期結束。')) return;
+
+  btn.disabled = true;
+  btn.textContent = '取消中…';
+
+  try{
+    const { data:{ session } } = await _sb.auth.getSession();
+    if(!session?.access_token) throw new Error('請重新登入');
+
+    const res = await fetch('/api/newebpay-period-cancel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error || '取消失敗');
+
+    showToast('訂閱已取消，服務持續至本期結束。');
+    // 重新載入方案資訊
+    setTimeout(() => loadProfile(), 1500);
+  }catch(e){
+    showToast('錯誤：' + e.message);
+    btn.disabled = false;
+    btn.textContent = '確認取消訂閱';
+  }
 }
 
 async function sendResetEmail(){
