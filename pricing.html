@@ -301,12 +301,18 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
   </div>
 </div>
 
-<!-- 付款表單（隱藏） -->
+<!-- 付款表單（隱藏）— 一次付清（點數包用） -->
 <form id="paymentForm" method="POST" style="display:none;">
   <input type="hidden" name="MerchantID" id="fMerchantID">
   <input type="hidden" name="TradeInfo" id="fTradeInfo">
   <input type="hidden" name="TradeSha" id="fTradeSha">
   <input type="hidden" name="Version" id="fVersion" value="2.0">
+</form>
+
+<!-- 定期定額表單（隱藏）— 訂閱方案用 -->
+<form id="periodForm" method="POST" style="display:none;">
+  <input type="hidden" name="MerchantID_" id="pMerchantID">
+  <input type="hidden" name="PostData_" id="pPostData">
 </form>
 
 <div class="toast" id="toast"></div>
@@ -400,7 +406,11 @@ async function proceedToPayment(planId, referralCode){
   const btn = document.getElementById('checkoutConfirmBtn');
   if(btn) btn.disabled = true;
   try{
-    const res = await fetch('/api/newebpay-create', {
+    // 訂閱方案走定期定額；點數包維持一次付清
+    const isSubscription = !planId.startsWith('credits_');
+    const apiEndpoint = isSubscription ? '/api/newebpay-period-create' : '/api/newebpay-create';
+
+    const res = await fetch(apiEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -413,16 +423,26 @@ async function proceedToPayment(planId, referralCode){
     const data = await res.json();
     if(!data.success) throw new Error(data.error || '建立訂單失敗');
 
-    // 填入表單並送出
-    const form = document.getElementById('paymentForm');
-    form.action = data.paymentUrl;
-    document.getElementById('fMerchantID').value = data.formData.MerchantID;
-    document.getElementById('fTradeInfo').value  = data.formData.TradeInfo;
-    document.getElementById('fTradeSha').value   = data.formData.TradeSha;
-    document.getElementById('fVersion').value    = data.formData.Version;
-    // 儲存訂單號碼，讓 payment-result.html 可以查詢訂單狀態
+    // 儲存訂單號碼，讓 payment-result.html 可以查詢狀態
     sessionStorage.setItem('pending_order_no', data.orderNo);
-    form.submit();
+
+    if(isSubscription){
+      // 定期定額：填入 periodForm 並 POST 到藍新 period 端點
+      const form = document.getElementById('periodForm');
+      form.action = data.periodUrl;
+      document.getElementById('pMerchantID').value = data.formData.MerchantID_;
+      document.getElementById('pPostData').value   = data.formData.PostData_;
+      form.submit();
+    } else {
+      // 一次付清（點數包）：原有流程不變
+      const form = document.getElementById('paymentForm');
+      form.action = data.paymentUrl;
+      document.getElementById('fMerchantID').value = data.formData.MerchantID;
+      document.getElementById('fTradeInfo').value  = data.formData.TradeInfo;
+      document.getElementById('fTradeSha').value   = data.formData.TradeSha;
+      document.getElementById('fVersion').value    = data.formData.Version;
+      form.submit();
+    }
   }catch(e){
     showToast('錯誤：' + e.message);
     if(btn) btn.disabled = false;
