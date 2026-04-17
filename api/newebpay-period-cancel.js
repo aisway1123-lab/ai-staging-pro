@@ -8,11 +8,8 @@ import { createClient } from '@supabase/supabase-js';
 const MERCHANT_ID = process.env.NEWEBPAY_MERCHANT_ID;
 const HASH_KEY    = process.env.NEWEBPAY_HASH_KEY;
 const HASH_IV     = process.env.NEWEBPAY_HASH_IV;
-const IS_PROD     = process.env.VERCEL_ENV === 'production';
-
-const ALTER_URL = IS_PROD
-  ? 'https://core.newebpay.com/MPG/period/AlterStatus'
-  : 'https://ccore.newebpay.com/MPG/period/AlterStatus';
+// 正式端點（個人帳號無測試環境）
+const ALTER_URL = 'https://core.newebpay.com/MPG/period/AlterStatus';
 
 // AES-256-CBC 加密
 function aesEncrypt(data) {
