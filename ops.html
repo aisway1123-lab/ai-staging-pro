@@ -356,21 +356,18 @@ function setBar(id, pct){
 }
 
 async function loadOrders(){
-  // 付款成功的優先顯示，再顯示最近的 pending
-  const [paidRes, pendingRes] = await Promise.all([
-    _sb.from('orders').select('order_no, user_id, plan_type, amount, status, created_at, paid_at')
-      .eq('status','paid').order('paid_at', { ascending:false }).limit(10),
-    _sb.from('orders').select('order_no, user_id, plan_type, amount, status, created_at, paid_at')
-      .eq('status','pending').order('created_at', { ascending:false }).limit(5),
-  ]);
+  const session = await _sb.auth.getSession();
+  const adminId = session.data?.session?.user?.id;
+  if(!adminId) return;
 
-  const orders = [...(paidRes.data||[]), ...(pendingRes.data||[])];
-
-  // 批次查詢 email
-  const userIds = [...new Set(orders.map(o=>o.user_id))];
-  const { data: profiles } = await _sb.from('profiles').select('id, email').in('id', userIds);
-  const emailMap = {};
-  (profiles||[]).forEach(p=>{ emailMap[p.id]=p.email; });
+  // 透過 admin-data.js 繞過 RLS 取得訂單與 email
+  const res = await fetch('/api/admin-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'getRecentOrders', adminId })
+  });
+  const json = await res.json();
+  const orders = json.orders || [];
 
   const tbody = document.getElementById('ordersTable');
   if(!orders.length){
@@ -382,10 +379,9 @@ async function loadOrders(){
     const statusClass = o.status==='paid'?'paid':o.status==='pending'?'pending':'failed';
     const statusText  = o.status==='paid'?'已付款':o.status==='pending'?'待付款':'失敗';
     const dateStr = fmtTW(o.paid_at || o.created_at);
-    const email = emailMap[o.user_id] || '—';
     return `<tr>
       <td style="font-size:10px;">${o.order_no?.slice(-12)||'—'}</td>
-      <td style="color:var(--ink);">${email}</td>
+      <td style="color:var(--ink);">${o.email||'—'}</td>
       <td>${PLAN_LABELS[o.plan_type]||o.plan_type||'—'}</td>
       <td>NT$${(o.amount||0).toLocaleString()}</td>
       <td><span class="badge badge-${statusClass}">${statusText}</span></td>
@@ -402,30 +398,30 @@ async function searchOrder(){
   resultEl.className = 'search-result show';
   resultEl.innerHTML = '查詢中…';
 
-  // 判斷是訂單號還是 email
-  let order = null;
-  let profile = null;
+  const session = await _sb.auth.getSession();
+  const adminId = session.data?.session?.user?.id;
 
-  if(q.includes('@')){
-    // 用 email 查
-    const { data: p } = await _sb.from('profiles').select('id, email, role, credits').eq('email', q).single();
-    if(p){
-      profile = p;
-      const { data: orders } = await _sb.from('orders').select('*').eq('user_id', p.id).order('created_at', { ascending:false }).limit(5);
-      const orderList = (orders||[]).map(o=>`  ${fmtTW(o.created_at)} | ${PLAN_LABELS[o.plan_type]||o.plan_type} | NT$${o.amount} | ${o.status==='paid'?'✅ 已付款':'⏳ 待付款'}`).join('\n');
-      resultEl.innerHTML = `<strong>用戶：</strong>${p.email}<br><strong>角色：</strong>${p.role}<br><strong>剩餘點數：</strong>${p.credits}<br><strong>最近訂單：</strong><br><pre style="margin-top:4px;font-size:11px;">${orderList||'（無）'}</pre>`;
-    } else {
-      resultEl.innerHTML = '找不到此 Email 的用戶。';
-    }
+  const res = await fetch('/api/admin-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'searchOrder', adminId, query: q })
+  });
+  const json = await res.json();
+
+  if(json.error){ resultEl.innerHTML = json.error; return; }
+
+  if(json.type === 'email'){
+    const p = json.profile;
+    const orderList = (json.orders||[]).map(o=>
+      `  ${fmtTW(o.created_at)} | ${PLAN_LABELS[o.plan_type]||o.plan_type} | NT$${o.amount} | ${o.status==='paid'?'✅ 已付款':'⏳ 待付款'}`
+    ).join('\n');
+    resultEl.innerHTML = `<strong>用戶：</strong>${p.email}<br><strong>角色：</strong>${p.role}<br><strong>剩餘點數：</strong>${p.credits}<br><strong>最近訂單：</strong><br><pre style="margin-top:4px;font-size:11px;">${orderList||'（無）'}</pre>`;
+  } else if(json.type === 'order'){
+    const o = json.order;
+    const p = json.profile;
+    resultEl.innerHTML = `<strong>訂單：</strong>${o.order_no}<br><strong>方案：</strong>${PLAN_LABELS[o.plan_type]||o.plan_type}<br><strong>金額：</strong>NT$${o.amount}<br><strong>狀態：</strong>${o.status==='paid'?'✅ 已付款':'⏳ 待付款'}<br><strong>時間：</strong>${fmtTW(o.paid_at||o.created_at)}<br><strong>用戶 Email：</strong>${p?.email||'—'}<br><strong>角色：</strong>${p?.role||'—'}<br><strong>剩餘點數：</strong>${p?.credits??'—'}`;
   } else {
-    // 用訂單號查
-    const { data: o } = await _sb.from('orders').select('*').eq('order_no', q).single();
-    if(o){
-      const { data: p } = await _sb.from('profiles').select('email, role, credits').eq('id', o.user_id).single();
-      resultEl.innerHTML = `<strong>訂單：</strong>${o.order_no}<br><strong>方案：</strong>${PLAN_LABELS[o.plan_type]||o.plan_type}<br><strong>金額：</strong>NT$${o.amount}<br><strong>狀態：</strong>${o.status==='paid'?'✅ 已付款':'⏳ 待付款'}<br><strong>時間：</strong>${fmtTW(o.paid_at||o.created_at)}<br><strong>用戶 Email：</strong>${p?.email||'—'}<br><strong>角色：</strong>${p?.role||'—'}<br><strong>剩餘點數：</strong>${p?.credits??'—'}`;
-    } else {
-      resultEl.innerHTML = '找不到此訂單號，請確認是否完整。';
-    }
+    resultEl.innerHTML = json.message || '找不到資料。';
   }
 }
 
