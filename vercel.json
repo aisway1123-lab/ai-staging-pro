@@ -1,4 +1,16 @@
 {
+  "outputDirectory": ".",
+  "headers": [
+    {
+      "source": "/.well-known/apple-developer-merchantid-domain-association",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain"
+        }
+      ]
+    }
+  ],
   "functions": {
     "api/generate.js": {
       "maxDuration": 60
