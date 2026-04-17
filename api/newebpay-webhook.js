@@ -110,6 +110,9 @@ export default async function handler(req, res) {
         console.error('點數包加點失敗:', logErr);
       } else {
         console.log(`訂單 ${orderNo} 點數包付款成功，加 ${order.credits} 點，到期 ${packExpiresAt}`);
+        // 同步更新 profiles.credits 快取
+        const { data: newCredits } = await supabase.rpc('get_available_credits', { p_user_id: order.user_id });
+        await supabase.from('profiles').update({ credits: newCredits ?? 0, updated_at: new Date().toISOString() }).eq('id', order.user_id);
       }
     }
 
@@ -149,6 +152,9 @@ export default async function handler(req, res) {
         console.error('訂閱加點失敗:', logErr);
       } else {
         console.log(`訂單 ${orderNo} 訂閱付款成功，加 ${order.credits} 點，重置日 ${subscriptionExpiresAt}`);
+        // 同步更新 profiles.credits 快取
+        const { data: newCredits } = await supabase.rpc('get_available_credits', { p_user_id: order.user_id });
+        await supabase.from('profiles').update({ credits: newCredits ?? 0, updated_at: new Date().toISOString() }).eq('id', order.user_id);
       }
     }
 
