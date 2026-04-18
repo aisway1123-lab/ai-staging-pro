@@ -75,6 +75,20 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
+  // ── 重複訂閱保護：已有有效訂閱且未取消，擋住 ──
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('role, cancel_at_period_end')
+    .eq('id', userId)
+    .single();
+
+  if (existingProfile?.role === 'subscriber' && !existingProfile?.cancel_at_period_end) {
+    return res.status(400).json({
+      success: false,
+      error: '您目前已有有效訂閱，如需更換方案請先取消現有訂閱。'
+    });
+  }
+
   // ── 產生商店訂單編號 ASP + timestamp + 4碼隨機 ──
   const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
   const merchantOrderNo = `ASP${Date.now()}${rand}`;

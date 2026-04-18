@@ -196,21 +196,43 @@ export default async function handler(req, res) {
           if (!referralLogErr && referralLog) {
             const referralExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-            const { error: logErr } = await supabase
+            // ── 推薦人得 100 點 ──
+            const { error: referrerLogErr } = await supabase
               .from('credit_logs')
               .insert({
                 user_id:    referrer.id,
                 type:       'referral',
-                amount:     200,
+                amount:     100,
                 expires_at: referralExpiresAt,
                 source_id:  referralLog.id,
-                note:       `推薦獎勵（被推薦人：${order.user_id}）`
+                note:       `推薦獎勵－推薦人（被推薦人：${order.user_id}）`
               });
 
-            if (logErr) {
-              console.error('推薦獎勵加點失敗:', logErr);
+            if (referrerLogErr) {
+              console.error('推薦人獎勵加點失敗:', referrerLogErr);
             } else {
-              console.log(`推薦獎勵：給 ${referrer.id} 加 200 點，到期 ${referralExpiresAt}`);
+              console.log(`推薦獎勵：給推薦人 ${referrer.id} 加 100 點，到期 ${referralExpiresAt}`);
+              // 同步推薦人快取
+              const { data: referrerCredits } = await supabase.rpc('get_available_credits', { p_user_id: referrer.id });
+              await supabase.from('profiles').update({ credits: referrerCredits ?? 0, updated_at: new Date().toISOString() }).eq('id', referrer.id);
+            }
+
+            // ── 被推薦人得 100 點 ──
+            const { error: referredLogErr } = await supabase
+              .from('credit_logs')
+              .insert({
+                user_id:    order.user_id,
+                type:       'referral',
+                amount:     100,
+                expires_at: referralExpiresAt,
+                source_id:  referralLog.id,
+                note:       `推薦獎勵－被推薦人（推薦人：${referrer.id}）`
+              });
+
+            if (referredLogErr) {
+              console.error('被推薦人獎勵加點失敗:', referredLogErr);
+            } else {
+              console.log(`推薦獎勵：給被推薦人 ${order.user_id} 加 100 點，到期 ${referralExpiresAt}`);
             }
           }
         }
