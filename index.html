@@ -904,6 +904,7 @@ const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_AN
 let currentUser=null,currentProfile=null;
 let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=null,imageAspectRatio='16:9';
 let generatedVideoUrl=null,generatedImageUrl=null;
+let isGenerating=false;
 
 async function initAuth(){
   let loginInProgress=false;
@@ -1360,7 +1361,7 @@ function resetUpload(e){
 }
 function selectStyle(el,key){document.querySelectorAll('.style-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedStyle=key;checkReady();document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';}
 function selectRoom(el,key){document.querySelectorAll('.room-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedRoom=key;checkReady();}
-function checkReady(){document.getElementById('genBtn').disabled=!(uploadedImageBase64&&selectedStyle&&selectedRoom);}
+function checkReady(){if(isGenerating)return;document.getElementById('genBtn').disabled=!(uploadedImageBase64&&selectedStyle&&selectedRoom);}
 
 // ── GENERATION ──
 async function uploadImageToFal(base64DataUrl){
@@ -1439,6 +1440,8 @@ async function startGeneration(){
   if(userRole==='trial_pending'){showToast('您的試用申請審核中，請稍候通知');return;}
 
   // 先鎖定按鈕並顯示進度條，讓用戶知道有反應
+  if(isGenerating){showToast('生成中，請勿重複送出');return;}
+  isGenerating=true;
   const genBtn=document.getElementById('genBtn');
   genBtn.disabled=true;
   genBtn.textContent='生成中…';
@@ -1471,6 +1474,7 @@ async function startGeneration(){
       const sName=STYLE_PROMPTS[selectedStyle].label;const rName=ROOM_NAMES[selectedRoom];
       document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
       document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
+      isGenerating=false;
       const btn=document.getElementById('genBtn');btn.disabled=false;btn.textContent='開始生成影片｜消耗 20 點';
       showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
       // ── 背景存檔到 Supabase Storage ──
@@ -1499,6 +1503,7 @@ async function startGeneration(){
       await new Promise(r=>setTimeout(r,1000));
     }
     if(!resetOk)console.warn('is_generating 重置失敗，請手動重整頁面');
+    isGenerating=false;
     document.getElementById('progressWrap').classList.remove('visible');
     document.getElementById('errorBox').classList.add('visible');
     const errMsg=err?.message||'未知錯誤';
