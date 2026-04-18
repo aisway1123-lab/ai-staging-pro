@@ -53,14 +53,61 @@ export default async function handler(req, res) {
   // 建立訂單號碼（時間戳 + 隨機）
   const orderNo = `ASP${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
+  // ── 讀取優惠碼（若有）──
+  let promoCodeId      = null;
+  let finalAmount      = plan.amount;
+  let promoBonusCredits = 0;
+  let promoDiscount    = 0;
+
+  const { data: userProfile } = await supabase
+    .from('profiles')
+    .select('promo_code_id')
+    .eq('id', userId)
+    .single();
+
+  if (userProfile?.promo_code_id) {
+    const now = new Date().toISOString();
+    const { data: promo } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .eq('id', userProfile.promo_code_id)
+      .eq('is_active', true)
+      .single();
+
+    if (promo && (!promo.valid_until || promo.valid_until >= now)) {
+      // 優惠碼有效，且 applicable_to 符合（pack 或 all）
+      const appliesToPack = promo.applicable_to === 'all' || promo.applicable_to === 'pack';
+      if (appliesToPack) {
+        promoCodeId = promo.id;
+        if (promo.type === 'discount') {
+          // 折扣，無條件捨去
+          if (promo.discount_type === 'percent') {
+            promoDiscount = Math.floor(plan.amount * promo.discount_value / 100);
+          } else {
+            promoDiscount = Math.min(promo.discount_value, plan.amount - 1); // 最少付 NT$1
+          }
+          finalAmount = plan.amount - promoDiscount;
+        } else if (promo.type === 'bonus_credits') {
+          promoBonusCredits = promo.credits_amount;
+        }
+      }
+    } else {
+      // 優惠碼過期，自動清除
+      await supabase.from('profiles').update({ promo_code_id: null }).eq('id', userId);
+    }
+  }
+
   // 寫入訂單
   const { error: orderErr } = await supabase.from('orders').insert({
-    user_id:   userId,
-    order_no:  orderNo,
-    plan_type: planId,
-    amount:    plan.amount,
-    credits:   plan.credits,
-    status:    'pending'
+    user_id:              userId,
+    order_no:             orderNo,
+    plan_type:            planId,
+    amount:               finalAmount,
+    credits:              plan.credits,
+    status:               'pending',
+    promo_code_id:        promoCodeId,
+    promo_discount:       promoDiscount,
+    promo_bonus_credits:  promoBonusCredits,
   });
 
   if (orderErr) return res.status(500).json({ error: '建立訂單失敗' });
@@ -92,7 +139,7 @@ export default async function handler(req, res) {
     TimeStamp:      Math.floor(Date.now() / 1000).toString(),
     Version:        '2.0',
     MerchantOrderNo: orderNo,
-    Amt:            plan.amount.toString(),
+    Amt:            finalAmount.toString(),
     ItemDesc:       plan.name,
     Email:          userEmail || '',
     NotifyURL:      `${SITE_URL}/api/newebpay-webhook`,

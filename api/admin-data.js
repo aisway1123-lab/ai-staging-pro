@@ -271,6 +271,60 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── 取得所有優惠碼 ──
+    if (action === 'getPromoCodes') {
+      const { data: codes } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      return res.status(200).json({ codes: codes || [] });
+    }
+
+    // ── 建立優惠碼 ──
+    if (action === 'createPromoCode') {
+      if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以建立優惠碼' });
+      const { code, type, discount_type, discount_value, credits_amount,
+              applicable_to, max_uses, per_user_limit, valid_from, valid_until, note } = req.body;
+
+      if (!code || !type) return res.status(400).json({ error: '缺少必要參數' });
+
+      const normalizedCode = code.trim().toUpperCase();
+
+      const { error: insertErr } = await supabase.from('promo_codes').insert({
+        code:           normalizedCode,
+        type:           type,
+        discount_type:  discount_type  || null,
+        discount_value: discount_value || 0,
+        credits_amount: credits_amount || 0,
+        applicable_to:  applicable_to  || 'all',
+        max_uses:       max_uses       || null,
+        per_user_limit: per_user_limit || 1,
+        valid_from:     valid_from     || null,
+        valid_until:    valid_until    || null,
+        is_active:      true,
+        note:           note           || null,
+        used_count:     0,
+      });
+
+      if (insertErr) return res.status(500).json({ error: '建立失敗：' + insertErr.message });
+      return res.status(200).json({ success: true });
+    }
+
+    // ── 啟用/停用優惠碼 ──
+    if (action === 'togglePromoCode') {
+      if (profile.role !== 'admin') return res.status(403).json({ error: '只有 admin 可以操作' });
+      const { codeId, isActive } = req.body;
+      if (!codeId) return res.status(400).json({ error: '缺少 codeId' });
+
+      const { error: updateErr } = await supabase
+        .from('promo_codes')
+        .update({ is_active: isActive })
+        .eq('id', codeId);
+
+      if (updateErr) return res.status(500).json({ error: '操作失敗：' + updateErr.message });
+      return res.status(200).json({ success: true });
+    }
+
     return res.status(400).json({ error: '無效的 action' });
 
   } catch (err) {

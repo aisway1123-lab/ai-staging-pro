@@ -87,7 +87,7 @@ export default async function handler(req, res) {
   // ── 查詢訂單取得 user_id / plan_type ──
   const { data: order, error: orderErr } = await supabase
     .from('orders')
-    .select('user_id, plan_type, status')
+    .select('user_id, plan_type, status, promo_code_id, promo_bonus_credits')
     .eq('order_no', MerchantOrderNo)
     .single();
 
@@ -147,16 +147,22 @@ export default async function handler(req, res) {
     .rpc('get_available_credits', { p_user_id: user_id });
   const newCredits = creditData ?? 0;
 
+  // 基本欄位每期都更新
+  const profileUpdate = {
+    credits:      newCredits,
+    role:         'subscriber',
+    plan_level:   plan_level,
+    plan_billing: plan_billing,
+    period_no:    PeriodNo,
+  };
+  // plan_started_at 只在首期設定，避免 undefined 寫入
+  if (alreadyTimes === 1) {
+    profileUpdate.plan_started_at = new Date().toISOString();
+  }
+
   await supabase
     .from('profiles')
-    .update({
-      credits:          newCredits,
-      role:             'subscriber',
-      plan_level:       plan_level,
-      plan_billing:     plan_billing,
-      plan_started_at:  alreadyTimes === 1 ? new Date().toISOString() : undefined,
-      period_no:        PeriodNo,   // 儲存委託單號供取消用
-    })
+    .update(profileUpdate)
     .eq('id', user_id);
 
   // ── 首期：更新 orders 狀態為 paid ──
@@ -165,6 +171,47 @@ export default async function handler(req, res) {
       .from('orders')
       .update({ status: 'paid', paid_at: new Date().toISOString() })
       .eq('order_no', MerchantOrderNo);
+
+    // ── 首期：優惠碼加送點數（bonus_credits）──
+    if (order.promo_bonus_credits > 0 && order.promo_code_id) {
+      try {
+        const bonusExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+        await supabase.from('credit_logs').insert({
+          user_id:    user_id,
+          type:       'coupon',
+          amount:     order.promo_bonus_credits,
+          expires_at: bonusExpiresAt,
+          source_id:  order.promo_code_id,
+          note:       `優惠碼加送點數（訂單：${MerchantOrderNo}）`,
+        });
+
+        const { data: promoData } = await supabase
+          .from('promo_codes')
+          .select('used_count')
+          .eq('id', order.promo_code_id)
+          .single();
+
+        await supabase.from('promo_code_uses').insert({
+          promo_code_id: order.promo_code_id,
+          user_id:       user_id,
+          order_no:      MerchantOrderNo,
+        });
+
+        await supabase.from('promo_codes')
+          .update({ used_count: (promoData?.used_count || 0) + 1 })
+          .eq('id', order.promo_code_id);
+
+        // 清除 profiles.promo_code_id
+        await supabase.from('profiles')
+          .update({ promo_code_id: null })
+          .eq('id', user_id);
+
+        console.log(`[period-notify] 優惠碼加送：${user_id} +${order.promo_bonus_credits} 點`);
+      } catch (e) {
+        console.error('[period-notify] 優惠碼加送失敗:', e.message);
+      }
+    }
   }
 
   // ── 首期：寄送訂閱成功通知信 ──

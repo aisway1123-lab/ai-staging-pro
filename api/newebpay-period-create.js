@@ -75,18 +75,36 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  // ── 重複訂閱保護：已有有效訂閱且未取消，擋住 ──
-  const { data: existingProfile } = await supabase
+  // ── 讀取優惠碼（若有，訂閱只支援 bonus_credits）──
+  let promoBonusCredits = 0;
+  let promoCodeId       = null;
+
+  const { data: subUserProfile } = await supabase
     .from('profiles')
-    .select('role, cancel_at_period_end')
+    .select('promo_code_id')
     .eq('id', userId)
     .single();
 
-  if (existingProfile?.role === 'subscriber' && !existingProfile?.cancel_at_period_end) {
-    return res.status(400).json({
-      success: false,
-      error: '您目前已有有效訂閱，如需更換方案請先取消現有訂閱。'
-    });
+  if (subUserProfile?.promo_code_id) {
+    const now = new Date().toISOString();
+    const { data: promo } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .eq('id', subUserProfile.promo_code_id)
+      .eq('is_active', true)
+      .single();
+
+    if (promo && (!promo.valid_until || promo.valid_until >= now)) {
+      const appliesToSub = promo.applicable_to === 'all' || promo.applicable_to === 'subscription_monthly';
+      if (appliesToSub && promo.type === 'bonus_credits') {
+        promoCodeId       = promo.id;
+        promoBonusCredits = promo.credits_amount;
+      }
+      // discount 類型對訂閱無效，忽略
+    } else {
+      // 優惠碼過期，自動清除
+      await supabase.from('profiles').update({ promo_code_id: null }).eq('id', userId);
+    }
   }
 
   // ── 產生商店訂單編號 ASP + timestamp + 4碼隨機 ──
@@ -95,13 +113,15 @@ export default async function handler(req, res) {
 
   // ── 寫入 orders 表（pending 狀態），同時儲存 planId / referralCode ──
   const { error: insertErr } = await supabase.from('orders').insert({
-    user_id:    userId,
-    order_no:   merchantOrderNo,
-    amount:     plan.amt,
-    plan_type:  planId,
-    credits:    plan.credits,
-    status:     'pending',
-    order_type: 'subscription',
+    user_id:             userId,
+    order_no:            merchantOrderNo,
+    amount:              plan.amt,
+    plan_type:           planId,
+    credits:             plan.credits,
+    status:              'pending',
+    order_type:          'subscription',
+    promo_code_id:       promoCodeId,
+    promo_bonus_credits: promoBonusCredits,
   });
 
   if (insertErr) {

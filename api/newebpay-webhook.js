@@ -239,6 +239,52 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── 優惠碼加送點數（bonus_credits）──
+    if (order.promo_bonus_credits > 0 && order.promo_code_id) {
+      try {
+        const bonusExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+        await supabase.from('credit_logs').insert({
+          user_id:    order.user_id,
+          type:       'coupon',
+          amount:     order.promo_bonus_credits,
+          expires_at: bonusExpiresAt,
+          source_id:  order.promo_code_id,
+          note:       `優惠碼加送點數（訂單：${orderNo}）`,
+        });
+
+        // 寫入使用紀錄
+        const { data: promoData } = await supabase
+          .from('promo_codes')
+          .select('used_count')
+          .eq('id', order.promo_code_id)
+          .single();
+
+        await supabase.from('promo_code_uses').insert({
+          promo_code_id: order.promo_code_id,
+          user_id:       order.user_id,
+          order_no:      orderNo,
+        });
+
+        await supabase.from('promo_codes')
+          .update({ used_count: (promoData?.used_count || 0) + 1 })
+          .eq('id', order.promo_code_id);
+
+        // 清除 profiles.promo_code_id
+        await supabase.from('profiles')
+          .update({ promo_code_id: null })
+          .eq('id', order.user_id);
+
+        // 同步 credits 快取
+        const { data: newCredits } = await supabase.rpc('get_available_credits', { p_user_id: order.user_id });
+        await supabase.from('profiles').update({ credits: newCredits ?? 0 }).eq('id', order.user_id);
+
+        console.log(`優惠碼加送：${order.user_id} +${order.promo_bonus_credits} 點`);
+      } catch (e) {
+        console.error('優惠碼加送點數失敗:', e.message);
+      }
+    }
+
     return res.status(200).send('OK');
 
   } catch (err) {
