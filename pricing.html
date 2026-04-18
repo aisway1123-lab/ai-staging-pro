@@ -182,6 +182,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
       <div class="plan-feature">推薦獎勵資格</div>
       <div class="plan-feature">隨時取消訂閱</div>
       <br>
+      <p style="font-size:11px;color:var(--ink-muted);font-family:var(--font-mono);letter-spacing:0.04em;margin-bottom:0.8rem;">信用卡定期定額自動續扣，可隨時取消</p>
       <button class="plan-btn outline" onclick="checkout('mini_monthly')" id="btnMiniMonthly">選擇迷你方案</button>
       <button class="plan-btn outline" onclick="checkout('mini_yearly')" id="btnMiniYearly" style="display:none;">選擇迷你年方案</button>
     </div>
@@ -238,8 +239,8 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
     <div>
       <div class="referral-banner-title">推薦獎勵計畫</div>
       <div class="referral-banner-text">
-        將您的推薦碼分享給同事、好友，對方<strong>首次訂閱月費或年費方案</strong>後，您可獲得 <strong>200 點獎勵</strong>（約 10 次生成）。每位新用戶限計一次，不限推薦人數。<br>
-        <span style="color:var(--ink-muted);font-size:12px;">推薦碼可在登入後於帳號頁面複製。結帳時填入朋友的推薦碼，即可讓對方獲得獎勵資格。</span>
+        將您的推薦碼分享給同事、好友，對方<strong>首次訂閱月費或年費方案付費後</strong>，雙方<strong>各獲得 100 點獎勵</strong>（約 5 次生成）。每位新用戶限計一次，不限推薦人數。<br>
+        <span style="color:var(--ink-muted);font-size:12px;">推薦碼可在登入後於帳號頁面複製。結帳時填入朋友的推薦碼，雙方於被推薦人首次付費後各得 100 點。</span>
       </div>
     </div>
   </div>
@@ -260,7 +261,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
     </div>
     <div class="faq-item" onclick="toggleFaq(this)">
       <div class="faq-q">推薦獎勵怎麼運作？<span class="faq-arrow">▼</span></div>
-      <div class="faq-a">分享您的推薦碼給同事、好友，對方首次付費後您可獲得 200 點獎勵（約 10 次生成）。推薦碼可在帳號選單中找到。</div>
+      <div class="faq-a">分享您的推薦碼給同事、好友，對方首次付費後雙方各獲得 100 點獎勵（約 5 次生成）。推薦碼可在帳號選單中找到。</div>
     </div>
     <div class="faq-item" onclick="toggleFaq(this)">
       <div class="faq-q">支援哪些付款方式？<span class="faq-arrow">▼</span></div>
@@ -283,7 +284,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
     <div class="checkout-divider"></div>
     <label class="checkout-label">推薦碼（選填）</label>
     <input class="checkout-input" type="text" id="checkoutReferral" placeholder="輸入朋友的推薦碼" maxlength="10">
-    <div class="checkout-hint">填入推薦您的朋友推薦碼，對方將獲得 200 點獎勵</div>
+    <div class="checkout-hint">填入推薦您的朋友推薦碼，首次付費後雙方各獲得 100 點獎勵</div>
     <div class="checkout-btns">
       <button class="checkout-cancel" onclick="closeCheckoutModal()">取消</button>
       <button class="checkout-confirm" id="checkoutConfirmBtn" onclick="confirmCheckout()">前往付款 →</button>
