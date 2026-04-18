@@ -1450,12 +1450,19 @@ async function startGeneration(){
   document.getElementById('errorBox').classList.remove('visible');
   setProgress('準備中…',3);
 
-  const{data:genCheck}=await _sb.from('profiles').select('is_generating').eq('id',currentUser.id).single();
+  const{data:genCheck}=await _sb.from('profiles').select('is_generating, updated_at').eq('id',currentUser.id).single();
   if(genCheck?.is_generating){
-    showToast('您有一個生成任務正在進行中，請稍候再試');
-    genBtn.disabled=false;genBtn.textContent='開始生成影片｜消耗 20 點';
-    document.getElementById('progressWrap').classList.remove('visible');
-    return;
+    const minutesElapsed=(Date.now()-new Date(genCheck.updated_at))/60000;
+    if(minutesElapsed<10){
+      showToast('生成中，請勿重複送出');
+      genBtn.disabled=false;genBtn.textContent='開始生成影片｜消耗 20 點';
+      document.getElementById('progressWrap').classList.remove('visible');
+      isGenerating=false;
+      return;
+    }
+    // 超過 10 分鐘視為卡住，自動重置
+    await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
+    console.warn('is_generating 超時，已自動重置');
   }
   await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
   try{
