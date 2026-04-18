@@ -155,15 +155,11 @@ export default async function handler(req, res) {
     });
   }
 
-  // ── 取消成功：更新 profiles，不刪點數（服務持續至本期結束）──
+  // ── 取消成功：標記 cancel_at_period_end，保持 role=subscriber 直到點數到期 ──
+  // role 和方案資訊由 cron-expiry.js 在點數到期後統一清除
   await supabase
     .from('profiles')
-    .update({
-      role:        'free',        // 下次付款週期不再給點
-      period_no:   null,
-      plan_level:  null,
-      plan_billing: null,
-    })
+    .update({ cancel_at_period_end: true })
     .eq('id', user.id);
 
   // ── 寫入 orders 取消記錄 ──

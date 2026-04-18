@@ -110,10 +110,52 @@ export default async function handler(req, res) {
 
     console.log(`到期提醒完成，共發送 ${reminderCount} 封`);
 
+    // ── 處理已取消但尚未降級的訂閱用戶 ──
+    // 找出 cancel_at_period_end=true 且所有 subscription 點數都已到期的用戶
+    const { data: cancelPending } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('cancel_at_period_end', true)
+      .eq('role', 'subscriber');
+
+    let cancelledCount = 0;
+    for (const p of (cancelPending || [])) {
+      // 查該用戶是否還有未到期的 subscription 點數
+      const { data: activeCredits } = await supabase
+        .from('credit_logs')
+        .select('id')
+        .eq('user_id', p.id)
+        .eq('type', 'subscription')
+        .gt('expires_at', new Date().toISOString())
+        .gt('amount', 0)
+        .limit(1);
+
+      if (!activeCredits || activeCredits.length === 0) {
+        // 點數已全部到期，正式降級
+        await supabase
+          .from('profiles')
+          .update({
+            role:                 'free',
+            plan_level:           null,
+            plan_billing:         null,
+            period_no:            null,
+            cancel_at_period_end: false,
+          })
+          .eq('id', p.id);
+        cancelledCount++;
+        console.log(`訂閱降級完成：${p.id}`);
+      }
+    }
+
+    if (cancelledCount > 0) {
+      console.log(`共處理 ${cancelledCount} 位取消訂閱用戶降級`);
+    }
+
     return res.status(200).json({
       success:        true,
       result:         expiryResult,
       reminders_sent: reminderCount,
+      cancelled:      cancelledCount,
       ran_at:         new Date().toISOString()
     });
 

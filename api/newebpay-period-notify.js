@@ -147,16 +147,22 @@ export default async function handler(req, res) {
     .rpc('get_available_credits', { p_user_id: user_id });
   const newCredits = creditData ?? 0;
 
+  // 基本欄位每期都更新
+  const profileUpdate = {
+    credits:      newCredits,
+    role:         'subscriber',
+    plan_level:   plan_level,
+    plan_billing: plan_billing,
+    period_no:    PeriodNo,
+  };
+  // plan_started_at 只在首期設定，避免 undefined 寫入
+  if (alreadyTimes === 1) {
+    profileUpdate.plan_started_at = new Date().toISOString();
+  }
+
   await supabase
     .from('profiles')
-    .update({
-      credits:          newCredits,
-      role:             'subscriber',
-      plan_level:       plan_level,
-      plan_billing:     plan_billing,
-      plan_started_at:  alreadyTimes === 1 ? new Date().toISOString() : undefined,
-      period_no:        PeriodNo,   // 儲存委託單號供取消用
-    })
+    .update(profileUpdate)
     .eq('id', user_id);
 
   // ── 首期：更新 orders 狀態為 paid ──

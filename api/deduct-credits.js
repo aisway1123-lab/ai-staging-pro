@@ -20,10 +20,10 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  // 驗證用戶存在且有資格扣點（非 free / trial_pending）
+  // 驗證用戶存在且有資格扣點
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, trial_expires_at')
+    .select('role')
     .eq('id', userId)
     .single();
 
@@ -34,11 +34,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, remaining: null });
   }
 
-  // 試用已到期則擋住
-  if (profile.role === 'trial' && profile.trial_expires_at) {
-    if (new Date(profile.trial_expires_at) < new Date()) {
-      return res.status(403).json({ error: '試用期已到期' });
-    }
+  // 用 get_available_credits 判斷點數是否足夠（含試用到期判斷）
+  const { data: available } = await supabase
+    .rpc('get_available_credits', { p_user_id: userId });
+  if ((available ?? 0) < cost) {
+    return res.status(400).json({ error: '點數不足', available: available ?? 0 });
   }
 
   // 呼叫 deduct_credits_v2，依消耗順序從 credit_logs 扣點
