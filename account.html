@@ -195,7 +195,7 @@ async function init(){
 
 async function loadProfile(){
   const { data: profile } = await _sb.from('profiles')
-    .select('role, plan_level, plan_billing, plan_started_at')
+    .select('role, plan_level, plan_billing, plan_started_at, cancel_at_period_end')
     .eq('id', currentUser.id)
     .single();
 
@@ -238,8 +238,13 @@ function showPlanInfo(role, profile, credits){
       : `試用中，剩餘 <span>${credits} 點</span>`;
   } else if(role === 'subscriber' && profile?.plan_billing){
     const started = profile?.plan_started_at ? fmtDate(profile.plan_started_at) : '—';
-    detail = `訂閱開始日：<span>${started}</span>`;
-    cancelEl.style.display = 'block';
+    if(profile?.cancel_at_period_end){
+      detail = `訂閱開始日：<span>${started}</span><br>訂閱將於本期點數到期後自動停止，無需再次操作。`;
+      cancelEl.style.display = 'none';
+    } else {
+      detail = `訂閱開始日：<span>${started}</span>`;
+      cancelEl.style.display = 'block';
+    }
   } else if(role === 'free'){
     detail = `目前為免費用戶，<a href="/pricing.html" style="color:var(--green);font-weight:500;">升級方案</a> 開始使用。`;
   } else if(role === 'trial_pending'){
