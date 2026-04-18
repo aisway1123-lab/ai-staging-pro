@@ -172,7 +172,7 @@ export default async function handler(req, res) {
     if (action === 'getMembers') {
       const { data: members } = await supabase
         .from('profiles')
-        .select('id, email, role, total_used, created_at, referral_code, referred_by, trial_expires_at, plan_level, plan_billing, storage_days, plan_started_at')
+        .select('id, email, role, total_used, created_at, referral_code, referred_by, plan_level, plan_billing, storage_days, plan_started_at')
         .order('created_at', { ascending: false });
 
       if (!members || members.length === 0) return res.status(200).json({ members: [] });
