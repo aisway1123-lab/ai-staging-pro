@@ -192,6 +192,9 @@ td.primary{color:var(--text);}
       <div class="nav-item" id="nav-services" onclick="showPage('services')">
         <span class="nav-icon">⚙</span><span>服務狀態</span>
       </div>
+      <div class="nav-item" id="nav-promo" onclick="showPage('promo')">
+        <span class="nav-icon">🎟</span><span>優惠碼</span>
+      </div>
       <div class="nav-item" onclick="window.open('/ops.html','_blank')" style="margin-top:4px;">
         <span class="nav-icon">◎</span><span>即時監控</span>
       </div>
@@ -287,6 +290,104 @@ td.primary{color:var(--text);}
     </div>
 
     <!-- 服務狀態頁面 -->
+    <div class="page" id="page-promo">
+      <div class="page-header">
+        <div class="page-title">優惠碼管理</div>
+        <div class="page-sub">建立與管理活動優惠碼</div>
+      </div>
+
+      <!-- 新增優惠碼表單 -->
+      <div class="table-wrap" style="margin-bottom:1.5rem;padding:1.4rem;">
+        <div class="table-title" style="margin-bottom:1rem;">新增優惠碼</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">優惠碼</label>
+            <input id="pcCode" type="text" placeholder="例：WELCOME100" maxlength="50"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;font-family:monospace;text-transform:uppercase;"
+              oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div>
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">類型</label>
+            <select id="pcType" onchange="updatePromoForm()"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+              <option value="instant_credits">輸入即送點數</option>
+              <option value="bonus_credits">購買後加送點數</option>
+              <option value="discount">折扣（僅點數包）</option>
+            </select>
+          </div>
+          <div id="pcCreditsWrap">
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">贈送點數</label>
+            <input id="pcCredits" type="number" min="1" placeholder="例：100"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+          </div>
+          <div id="pcDiscountWrap" style="display:none;">
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">折扣類型</label>
+            <select id="pcDiscountType"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+              <option value="percent">百分比（%）</option>
+              <option value="fixed">固定金額（NT$）</option>
+            </select>
+          </div>
+          <div id="pcDiscountValueWrap" style="display:none;">
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">折扣值</label>
+            <input id="pcDiscountValue" type="number" min="1" placeholder="例：15（代表15%或NT$15）"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+          </div>
+          <div>
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">適用範圍</label>
+            <select id="pcApplicableTo"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+              <option value="all">全部</option>
+              <option value="subscription_monthly">訂閱月繳</option>
+              <option value="pack">點數包</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">總使用次數上限（空白=無限）</label>
+            <input id="pcMaxUses" type="number" min="1" placeholder="空白為無限制"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+          </div>
+          <div>
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">每人限用次數</label>
+            <input id="pcPerUserLimit" type="number" min="1" value="1"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+          </div>
+          <div>
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">開始日期（選填）</label>
+            <input id="pcValidFrom" type="datetime-local"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+          </div>
+          <div>
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">到期日（選填）</label>
+            <input id="pcValidUntil" type="datetime-local"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px;">備註說明（選填）</label>
+            <input id="pcNote" type="text" placeholder="例：問卷填寫獎勵"
+              style="width:100%;background:var(--dark-3);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:0.8rem;">
+          </div>
+        </div>
+        <button class="btn" onclick="createPromoCode()" style="background:var(--gold);color:#0A0A0A;">新增優惠碼</button>
+        <div id="promoFormMsg" style="margin-top:8px;font-size:0.75rem;"></div>
+      </div>
+
+      <!-- 優惠碼列表 -->
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="table-title">優惠碼列表</div>
+          <button class="btn" onclick="loadPromoCodes()">重新整理</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>代碼</th><th>類型</th><th>內容</th><th>適用</th>
+            <th>已用/上限</th><th>每人限</th><th>有效期限</th><th>狀態</th><th>操作</th>
+          </tr></thead>
+          <tbody id="promoTableBody"><tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="page" id="page-services">
       <div class="page-header">
         <div class="page-title">服務狀態</div>
@@ -483,6 +584,7 @@ function showPage(name){
   if(name === 'pending')  loadPending();
   if(name === 'logs')     loadLogs();
   if(name === 'services') renderServices();
+  if(name === 'promo')    loadPromoCodes();
 }
 
 function loadAll(){
@@ -825,6 +927,122 @@ document.getElementById('creditsModal').addEventListener('click', function(e){
   if(e.target === this) closeModal('creditsModal');
 });
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal('creditsModal'); });
+
+// ── 優惠碼管理 ──
+
+function updatePromoForm(){
+  const type = document.getElementById('pcType').value;
+  const isDiscount = type === 'discount';
+  document.getElementById('pcCreditsWrap').style.display      = isDiscount ? 'none' : 'block';
+  document.getElementById('pcDiscountWrap').style.display     = isDiscount ? 'block' : 'none';
+  document.getElementById('pcDiscountValueWrap').style.display = isDiscount ? 'block' : 'none';
+}
+
+async function createPromoCode(){
+  const code = document.getElementById('pcCode').value.trim().toUpperCase();
+  const type = document.getElementById('pcType').value;
+  if(!code) return showToast('請輸入優惠碼');
+
+  const payload = {
+    action:         'createPromoCode',
+    adminId:        currentUserId,
+    code,
+    type,
+    applicable_to:  document.getElementById('pcApplicableTo').value,
+    max_uses:       document.getElementById('pcMaxUses').value ? parseInt(document.getElementById('pcMaxUses').value) : null,
+    per_user_limit: parseInt(document.getElementById('pcPerUserLimit').value) || 1,
+    valid_from:     document.getElementById('pcValidFrom').value  ? new Date(document.getElementById('pcValidFrom').value).toISOString()  : null,
+    valid_until:    document.getElementById('pcValidUntil').value ? new Date(document.getElementById('pcValidUntil').value).toISOString() : null,
+    note:           document.getElementById('pcNote').value || null,
+  };
+
+  if(type === 'discount'){
+    payload.discount_type  = document.getElementById('pcDiscountType').value;
+    payload.discount_value = parseInt(document.getElementById('pcDiscountValue').value) || 0;
+    payload.credits_amount = 0;
+  } else {
+    payload.credits_amount = parseInt(document.getElementById('pcCredits').value) || 0;
+    payload.discount_type  = null;
+    payload.discount_value = 0;
+  }
+
+  const msgEl = document.getElementById('promoFormMsg');
+  try{
+    const res  = await fetch('/api/admin-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error);
+    msgEl.style.color = 'var(--success)';
+    msgEl.textContent = '✓ 優惠碼建立成功';
+    // 清空表單
+    ['pcCode','pcCredits','pcDiscountValue','pcMaxUses','pcNote','pcValidFrom','pcValidUntil'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    loadPromoCodes();
+  }catch(e){
+    msgEl.style.color = 'var(--danger)';
+    msgEl.textContent = '✗ ' + e.message;
+  }
+}
+
+async function loadPromoCodes(){
+  const tbody = document.getElementById('promoTableBody');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">載入中…</td></tr>';
+  try{
+    const res  = await fetch('/api/admin-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'getPromoCodes', adminId:currentUserId }) });
+    const data = await res.json();
+    const codes = data.codes || [];
+    if(codes.length === 0){
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">尚無優惠碼</td></tr>';
+      return;
+    }
+
+    const typeMap = { instant_credits:'即送點', bonus_credits:'加送點', discount:'折扣' };
+    const now = new Date();
+
+    tbody.innerHTML = codes.map(c => {
+      const isExpired = c.valid_until && new Date(c.valid_until) < now;
+      const isFull    = c.max_uses !== null && c.used_count >= c.max_uses;
+      const statusText = !c.is_active ? '已停用' : isExpired ? '已過期' : isFull ? '已用完' : '啟用中';
+      const statusColor = !c.is_active || isExpired || isFull ? 'var(--text-muted)' : 'var(--success)';
+
+      let contentText = '';
+      if(c.type === 'discount'){
+        contentText = c.discount_type === 'percent' ? `${c.discount_value}% 折扣` : `折抵 NT$${c.discount_value}`;
+      } else {
+        contentText = `${c.credits_amount} 點`;
+      }
+
+      const validUntil = c.valid_until ? new Date(c.valid_until).toLocaleDateString('zh-TW') : '無限期';
+      const toggleLabel = c.is_active ? '停用' : '啟用';
+
+      return `<tr>
+        <td style="font-family:monospace;font-weight:500;color:var(--gold);">${c.code}</td>
+        <td>${typeMap[c.type] || c.type}</td>
+        <td>${contentText}</td>
+        <td>${c.applicable_to}</td>
+        <td>${c.used_count} / ${c.max_uses ?? '∞'}</td>
+        <td>${c.per_user_limit}</td>
+        <td>${validUntil}</td>
+        <td style="color:${statusColor};">${statusText}</td>
+        <td><button class="btn btn-sm" onclick="togglePromoCode('${c.id}', ${!c.is_active})">${toggleLabel}</button></td>
+      </tr>`;
+    }).join('');
+  }catch(e){
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:2rem;">${e.message}</td></tr>`;
+  }
+}
+
+async function togglePromoCode(codeId, isActive){
+  try{
+    const res  = await fetch('/api/admin-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'togglePromoCode', adminId:currentUserId, codeId, isActive }) });
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error);
+    loadPromoCodes();
+  }catch(e){
+    showToast('操作失敗：' + e.message);
+  }
+}
+
 </script>
 </body>
 </html>

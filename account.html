@@ -131,6 +131,20 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
     </div>
   </div>
 
+  <!-- 優惠碼兌換 -->
+  <div class="section">
+    <div class="section-title">優惠碼</div>
+    <div id="promoStatus" style="display:none;margin-bottom:1rem;padding:0.8rem 1rem;background:var(--gold-pale);border:1px solid rgba(168,132,74,0.2);border-left:2px solid var(--gold);font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="promoInput" placeholder="輸入優惠碼" maxlength="50"
+        style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--ink);font-family:var(--font-mono);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;padding:10px 12px;outline:none;transition:border-color 0.2s;"
+        oninput="this.value=this.value.toUpperCase()"
+        onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+      <button class="pw-btn" id="promoBtn" onclick="redeemPromo()" style="width:auto;padding:10px 20px;">兌換</button>
+    </div>
+    <div id="promoMsg" style="display:none;margin-top:0.8rem;padding:0.8rem 1rem;font-size:13px;line-height:1.7;"></div>
+  </div>
+
   <!-- 修改密碼 -->
   <div class="section">
     <div class="section-title">密碼設定</div>
@@ -195,7 +209,7 @@ async function init(){
 
 async function loadProfile(){
   const { data: profile } = await _sb.from('profiles')
-    .select('role, plan_level, plan_billing, plan_started_at, cancel_at_period_end')
+    .select('role, plan_level, plan_billing, plan_started_at, cancel_at_period_end, promo_code_id')
     .eq('id', currentUser.id)
     .single();
 
@@ -209,6 +223,32 @@ async function loadProfile(){
   currentProfile = profile;
   document.getElementById('planLoading').style.display = 'none';
   document.getElementById('planContent').style.display = 'block';
+
+  // 顯示待使用的優惠碼狀態
+  if(profile?.promo_code_id){
+    try{
+      const res = await fetch('/api/promo-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate', code: '__by_id__', userId: currentUser.id })
+      });
+      // 改用直接查詢
+      const { data: promoInfo } = await _sb.from('promo_codes')
+        .select('code, type, credits_amount, discount_type, discount_value')
+        .eq('id', profile.promo_code_id)
+        .single();
+      if(promoInfo){
+        const statusEl = document.getElementById('promoStatus');
+        const typeMsg = promoInfo.type === 'bonus_credits'
+          ? `付款後加送 ${promoInfo.credits_amount} 點`
+          : promoInfo.discount_type === 'percent'
+            ? `${promoInfo.discount_value}% 折扣`
+            : `折抵 NT$${promoInfo.discount_value}`;
+        statusEl.textContent = `✓ 已套用優惠碼 ${promoInfo.code}：${typeMsg}，於下次付款時自動生效`;
+        statusEl.style.display = 'block';
+      }
+    }catch(e){}
+  }
 
   if(!profile){ showPlanInfo('free', null, 0); return; }
   showPlanInfo(profile.role, profile, liveCredits);
@@ -313,6 +353,43 @@ function fmtDate(str){
   if(!str) return '—';
   const d = new Date(str);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+async function redeemPromo(){
+  const code = document.getElementById('promoInput').value.trim().toUpperCase();
+  const btn  = document.getElementById('promoBtn');
+  const msg  = document.getElementById('promoMsg');
+  if(!code){ showToast('請輸入優惠碼'); return; }
+
+  // 若已有待使用的優惠碼，確認覆蓋
+  if(currentProfile?.promo_code_id){
+    if(!confirm('您已有一個待使用的優惠碼，確定要替換嗎？')) return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '兌換中…';
+  msg.style.display = 'none';
+
+  try{
+    const res = await fetch('/api/promo-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'redeem', code, userId: currentUser.id })
+    });
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error || '兌換失敗');
+
+    msg.style.cssText = 'display:block;margin-top:0.8rem;padding:0.8rem 1rem;font-size:13px;line-height:1.7;background:#EBF5F0;border:1px solid rgba(44,74,62,0.2);border-left:2px solid var(--green);color:var(--green);';
+    msg.textContent = data.message;
+    document.getElementById('promoInput').value = '';
+    setTimeout(() => loadProfile(), 1000);
+  }catch(e){
+    msg.style.cssText = 'display:block;margin-top:0.8rem;padding:0.8rem 1rem;font-size:13px;line-height:1.7;background:#FEF0EE;border:1px solid rgba(192,75,58,0.2);border-left:2px solid var(--danger);color:var(--danger);';
+    msg.textContent = e.message;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '兌換';
+  }
 }
 
 function showToast(msg){
