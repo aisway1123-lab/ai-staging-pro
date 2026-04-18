@@ -14,10 +14,10 @@ const PERIOD_URL = 'https://core.newebpay.com/MPG/period';
 
 // 方案設定
 const PLANS = {
-  mini_monthly:     { amt: 899,   periodType: 'M', level: 'mini',     billing: 'monthly', credits: 300  },
-  mini_yearly:      { amt: 8990,  periodType: 'Y', level: 'mini',     billing: 'yearly',  credits: 3600 },
-  standard_monthly: { amt: 1980,  periodType: 'M', level: 'standard', billing: 'monthly', credits: 1000 },
-  standard_yearly:  { amt: 19800, periodType: 'Y', level: 'standard', billing: 'yearly',  credits: 12000},
+  mini_monthly:     { amt: 899,   periodType: 'M', level: 'mini',     billing: 'monthly', credits: 300,   prodDesc: 'AI Staging Pro 迷你方案 月繳' },
+  mini_yearly:      { amt: 8990,  periodType: 'Y', level: 'mini',     billing: 'yearly',  credits: 3600,  prodDesc: 'AI Staging Pro 迷你方案 年繳' },
+  standard_monthly: { amt: 1980,  periodType: 'M', level: 'standard', billing: 'monthly', credits: 1000,  prodDesc: 'AI Staging Pro 標準方案 月繳' },
+  standard_yearly:  { amt: 19800, periodType: 'Y', level: 'standard', billing: 'yearly',  credits: 12000, prodDesc: 'AI Staging Pro 標準方案 年繳' },
 };
 
 // AES-256-CBC 加密（與一次付清相同邏輯）
@@ -105,12 +105,12 @@ export default async function handler(req, res) {
     Version:         '1.5',
     LangType:        'zh-Tw',
     MerOrderNo:      merchantOrderNo,
-    ProdDesc:        'AI Staging Pro 訂閱方案',
+    ProdDesc:        plan.prodDesc,
     PeriodAmt:       String(plan.amt),
     PeriodType:      plan.periodType,
     PeriodPoint:     periodPoint,
     PeriodStartType: '2',              // 立即執行委託金額授權
-    PeriodTimes:     '99',             // 最大 99 期（月繳約 8 年，年繳不適用但設上限）
+    PeriodTimes:     '36',             // 36 期（CAU 開通後改為 NE）
     PayerEmail:      userEmail,
     EmailModify:     '0',              // 不允許修改 Email
     PaymentInfo:     'Y',

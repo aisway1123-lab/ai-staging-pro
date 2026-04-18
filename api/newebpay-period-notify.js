@@ -147,22 +147,16 @@ export default async function handler(req, res) {
     .rpc('get_available_credits', { p_user_id: user_id });
   const newCredits = creditData ?? 0;
 
-  // 基本欄位每期都更新
-  const profileUpdate = {
-    credits:      newCredits,
-    role:         'subscriber',
-    plan_level:   plan_level,
-    plan_billing: plan_billing,
-    period_no:    PeriodNo,
-  };
-  // plan_started_at 只在首期設定，避免 undefined 寫入
-  if (alreadyTimes === 1) {
-    profileUpdate.plan_started_at = new Date().toISOString();
-  }
-
   await supabase
     .from('profiles')
-    .update(profileUpdate)
+    .update({
+      credits:          newCredits,
+      role:             'subscriber',
+      plan_level:       plan_level,
+      plan_billing:     plan_billing,
+      plan_started_at:  alreadyTimes === 1 ? new Date().toISOString() : undefined,
+      period_no:        PeriodNo,   // 儲存委託單號供取消用
+    })
     .eq('id', user_id);
 
   // ── 首期：更新 orders 狀態為 paid ──
@@ -171,6 +165,37 @@ export default async function handler(req, res) {
       .from('orders')
       .update({ status: 'paid', paid_at: new Date().toISOString() })
       .eq('order_no', MerchantOrderNo);
+  }
+
+  // ── 首期：寄送訂閱成功通知信 ──
+  if (alreadyTimes === 1) {
+    try {
+      const { data: userData } = await supabase.auth.admin.getUserById(user_id);
+      const email = userData?.user?.email;
+      if (email) {
+        const SITE_URL = process.env.SITE_URL || 'https://www.aistaging.pro';
+        const planNameMap = {
+          mini_monthly:     '迷你方案 月繳',
+          mini_yearly:      '迷你方案 年繳',
+          standard_monthly: '標準方案 月繳',
+          standard_yearly:  '標準方案 年繳',
+        };
+        await fetch(`${SITE_URL}/api/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'subscription_activated',
+            to:   email,
+            data: {
+              planName: planNameMap[planType] || planType,
+              credits:  creditsToAdd,
+            }
+          })
+        });
+      }
+    } catch (e) {
+      console.warn('[period-notify] 訂閱成功信寄送失敗:', e.message);
+    }
   }
 
   console.log(`[period-notify] 完成 user=${user_id} credits+${creditsToAdd} period=${alreadyTimes}`);

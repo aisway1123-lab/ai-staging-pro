@@ -155,11 +155,15 @@ export default async function handler(req, res) {
     });
   }
 
-  // ── 取消成功：標記 cancel_at_period_end，保持 role=subscriber 直到點數到期 ──
-  // role 和方案資訊由 cron-expiry.js 在點數到期後統一清除
+  // ── 取消成功：更新 profiles，不刪點數（服務持續至本期結束）──
   await supabase
     .from('profiles')
-    .update({ cancel_at_period_end: true })
+    .update({
+      role:        'free',        // 下次付款週期不再給點
+      period_no:   null,
+      plan_level:  null,
+      plan_billing: null,
+    })
     .eq('id', user.id);
 
   // ── 寫入 orders 取消記錄 ──
@@ -167,6 +171,21 @@ export default async function handler(req, res) {
     .from('orders')
     .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
     .eq('order_no', order.order_no);
+
+  // ── 寄送取消確認信 ──
+  try {
+    const { data: userData } = await supabase.auth.admin.getUserById(user.id);
+    const email = userData?.user?.email;
+    if (email) {
+      await fetch(`${process.env.SITE_URL}/api/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'subscription_cancelled', to: email })
+      });
+    }
+  } catch (e) {
+    console.warn('[period-cancel] 取消確認信寄送失敗:', e.message);
+  }
 
   return res.status(200).json({
     success: true,

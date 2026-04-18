@@ -35,23 +35,45 @@ export default async function handler(req, res) {
 
     console.log('點數到期清算完成:', expiryResult);
 
-    // ── 到期前 7 天提醒 Email ──
-    // 找出 7 天後到期、尚未發過提醒、type 為 trial 或 pack 的記錄
-    const reminderTarget = new Date();
-    reminderTarget.setDate(reminderTarget.getDate() + 7);
+    // ── 到期前提醒 Email（trial: 2天前，pack: 7天前）──
+    // 找出即將到期、尚未發過提醒、type 為 trial 或 pack 的記錄
+    // trial 2天前提醒，pack 7天前提醒，分開查詢
+    const trialReminderTarget = new Date();
+    trialReminderTarget.setDate(trialReminderTarget.getDate() + 2);
+    const trialReminderStart = new Date(trialReminderTarget);
+    trialReminderStart.setHours(0, 0, 0, 0);
+    const trialReminderEnd = new Date(trialReminderTarget);
+    trialReminderEnd.setHours(23, 59, 59, 999);
+
+    const packReminderTarget = new Date();
+    packReminderTarget.setDate(packReminderTarget.getDate() + 7);
+    const reminderTarget = packReminderTarget;
     const reminderStart = new Date(reminderTarget);
     reminderStart.setHours(0, 0, 0, 0);
     const reminderEnd = new Date(reminderTarget);
     reminderEnd.setHours(23, 59, 59, 999);
 
-    const { data: pendingReminders } = await supabase
+    // trial 2天前提醒
+    const { data: trialReminders } = await supabase
       .from('credit_logs')
       .select('id, user_id, type, amount, expires_at')
-      .in('type', ['trial', 'pack'])
+      .eq('type', 'trial')
+      .gte('expires_at', trialReminderStart.toISOString())
+      .lte('expires_at', trialReminderEnd.toISOString())
+      .is('reminder_sent_at', null)
+      .gt('amount', 0);
+
+    // pack 7天前提醒
+    const { data: packReminders } = await supabase
+      .from('credit_logs')
+      .select('id, user_id, type, amount, expires_at')
+      .eq('type', 'pack')
       .gte('expires_at', reminderStart.toISOString())
       .lte('expires_at', reminderEnd.toISOString())
       .is('reminder_sent_at', null)
       .gt('amount', 0);
+
+    const pendingReminders = [...(trialReminders || []), ...(packReminders || [])];
 
     let reminderCount = 0;
     const SITE_URL = process.env.SITE_URL || 'https://www.aistaging.pro';
@@ -109,6 +131,60 @@ export default async function handler(req, res) {
     }
 
     console.log(`到期提醒完成，共發送 ${reminderCount} 封`);
+
+    // ── 訂閱即將到期提醒（cancel_at_period_end=true，7天前）──
+    const subReminderTarget = new Date();
+    subReminderTarget.setDate(subReminderTarget.getDate() + 7);
+    const subReminderStart = new Date(subReminderTarget);
+    subReminderStart.setHours(0, 0, 0, 0);
+    const subReminderEnd = new Date(subReminderTarget);
+    subReminderEnd.setHours(23, 59, 59, 999);
+
+    const { data: subExpiring } = await supabase
+      .from('credit_logs')
+      .select('id, user_id, type, amount, expires_at')
+      .eq('type', 'subscription')
+      .gte('expires_at', subReminderStart.toISOString())
+      .lte('expires_at', subReminderEnd.toISOString())
+      .is('reminder_sent_at', null)
+      .gt('amount', 0);
+
+    for (const log of (subExpiring || [])) {
+      try {
+        // 只對 cancel_at_period_end=true 的用戶發提醒
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('cancel_at_period_end')
+          .eq('id', log.user_id)
+          .single();
+        if (!prof?.cancel_at_period_end) continue;
+
+        const { data: userData } = await supabase.auth.admin.getUserById(log.user_id);
+        const email = userData?.user?.email;
+        if (!email) continue;
+
+        const emailRes = await fetch(`${SITE_URL}/api/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'subscription_expiring',
+            to:   email,
+            data: { daysLeft: 7 }
+          })
+        });
+
+        if (emailRes.ok) {
+          await supabase
+            .from('credit_logs')
+            .update({ reminder_sent_at: new Date().toISOString() })
+            .eq('id', log.id);
+          reminderCount++;
+          console.log(`訂閱到期提醒已寄送：${email}`);
+        }
+      } catch (e) {
+        console.warn(`訂閱提醒失敗（user: ${log.user_id}）:`, e.message);
+      }
+    }
 
     // ── 處理已取消但尚未降級的訂閱用戶 ──
     // 找出 cancel_at_period_end=true 且所有 subscription 點數都已到期的用戶

@@ -86,6 +86,23 @@ export default async function handler(req, res) {
         .update({ role: 'free', updated_at: new Date().toISOString() })
         .eq('id', userId);
       if (updateErr) return res.status(500).json({ error: '操作失敗：' + updateErr.message });
+
+      // 寄送拒絕通知信
+      try {
+        const { data: userData } = await supabase.auth.admin.getUserById(userId);
+        const email = userData?.user?.email;
+        if (email) {
+          const SITE_URL = process.env.SITE_URL || 'https://www.aistaging.pro';
+          await fetch(`${SITE_URL}/api/send-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'trial_rejected', to: email })
+          });
+        }
+      } catch (e) {
+        console.warn('拒絕通知信寄送失敗:', e.message);
+      }
+
       return res.status(200).json({ success: true });
     }
 
