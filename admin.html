@@ -945,7 +945,7 @@ async function createPromoCode(){
 
   const payload = {
     action:         'createPromoCode',
-    adminId:        currentUserId,
+    adminId:        adminUser.id,
     code,
     type,
     applicable_to:  document.getElementById('pcApplicableTo').value,
@@ -988,7 +988,7 @@ async function loadPromoCodes(){
   const tbody = document.getElementById('promoTableBody');
   tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">載入中…</td></tr>';
   try{
-    const res  = await fetch('/api/admin-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'getPromoCodes', adminId:currentUserId }) });
+    const res  = await fetch('/api/admin-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'getPromoCodes', adminId:adminUser.id }) });
     const data = await res.json();
     const codes = data.codes || [];
     if(codes.length === 0){
@@ -1034,7 +1034,7 @@ async function loadPromoCodes(){
 
 async function togglePromoCode(codeId, isActive){
   try{
-    const res  = await fetch('/api/admin-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'togglePromoCode', adminId:currentUserId, codeId, isActive }) });
+    const res  = await fetch('/api/admin-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'togglePromoCode', adminId:adminUser.id, codeId, isActive }) });
     const data = await res.json();
     if(!data.success) throw new Error(data.error);
     loadPromoCodes();
