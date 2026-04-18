@@ -1351,8 +1351,12 @@ function resetUpload(e){
   e.stopPropagation();uploadedImageBase64=null;uploadedImageUrl=null;
   uz.classList.remove('has-image');
   uz.innerHTML=`<input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif"><div class="upload-icon">🏠</div><div class="upload-text"><strong>點擊或拖曳上傳照片</strong>支援橫式或直式空屋照，保留原始比例</div><div class="upload-hint">JPG / PNG / WebP｜建議 1MB 以上清晰圖片</div><button class="change-btn" onclick="resetUpload(event)">重新上傳</button>`;
-  document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])processImage(e.target.files[0]);});
-  document.getElementById('precheck').style.display='none';checkReady();
+  const fi=document.getElementById('fileInput');
+  fi.addEventListener('change',e=>{if(e.target.files[0])processImage(e.target.files[0]);});
+  document.getElementById('precheck').style.display='none';
+  checkReady();
+  // 自動開啟檔案選擇器，讓用戶直接選新圖
+  setTimeout(()=>fi.click(),50);
 }
 function selectStyle(el,key){document.querySelectorAll('.style-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedStyle=key;checkReady();document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';}
 function selectRoom(el,key){document.querySelectorAll('.room-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedRoom=key;checkReady();}
