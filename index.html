@@ -1206,7 +1206,7 @@ const ROOM_NAMES={bedroom:"臥室",living_room:"客廳",dining_room:"餐廳",kit
 // ── UPLOAD ──
 const uz=document.getElementById('uploadZone');
 const fi=document.getElementById('fileInput');
-uz.addEventListener('click',e=>{if(!e.target.classList.contains('change-btn'))fi.click();});
+uz.addEventListener('click',e=>{if(!e.target.classList.contains('change-btn')){const currentFi=document.getElementById('fileInput');if(currentFi)currentFi.click();}});
 uz.addEventListener('dragover',e=>{e.preventDefault();uz.style.borderColor='var(--green)';});
 uz.addEventListener('dragleave',()=>{uz.style.borderColor='';});
 uz.addEventListener('drop',e=>{e.preventDefault();uz.style.borderColor='';const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))processImage(f);});
@@ -1357,7 +1357,7 @@ function resetUpload(e){
   document.getElementById('precheck').style.display='none';
   checkReady();
   // 自動開啟檔案選擇器，讓用戶直接選新圖
-  setTimeout(()=>fi.click(),50);
+  document.getElementById('fileInput').click();
 }
 function selectStyle(el,key){document.querySelectorAll('.style-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedStyle=key;checkReady();document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';}
 function selectRoom(el,key){document.querySelectorAll('.room-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedRoom=key;checkReady();}
