@@ -1475,28 +1475,38 @@ async function startGeneration(){
     if(!generatedVideoUrl)throw new Error('圖生影未回傳結果，請重試');setProgress('完成！',100);
     const deducted=await deductCredits(20);if(!deducted){showToast('點數扣除失敗，請重新整理後再試');}
     setTimeout(async()=>{
-      await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
-      document.getElementById('progressWrap').classList.remove('visible');
-      document.getElementById('resultSection').style.display='block';
-      const sName=STYLE_PROMPTS[selectedStyle].label;const rName=ROOM_NAMES[selectedRoom];
-      document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
-      document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
-      isGenerating=false;
-      const btn=document.getElementById('genBtn');btn.disabled=false;btn.textContent='開始生成影片｜消耗 20 點';
-      showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
-      // ── 背景存檔到 Supabase Storage ──
-      if(currentUser){
-        fetch('/api/save-generation',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            imageUrl: generatedImageUrl,
-            videoUrl: generatedVideoUrl,
-            userId:   currentUser.id,
-            style:    selectedStyle,
-            roomType: selectedRoom
-          })
-        }).catch(e=>console.warn('存檔失敗（不影響使用）:',e));
+      try{
+        await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
+        document.getElementById('progressWrap').classList.remove('visible');
+        document.getElementById('resultSection').style.display='block';
+        const sName=STYLE_PROMPTS[selectedStyle]?.label||selectedStyle;
+        const rName=ROOM_NAMES[selectedRoom]||selectedRoom;
+        document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
+        document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
+        isGenerating=false;
+        const btn=document.getElementById('genBtn');btn.disabled=false;btn.textContent='開始生成影片｜消耗 20 點';
+        showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
+        // ── 背景存檔到 Supabase Storage ──
+        if(currentUser){
+          fetch('/api/save-generation',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              imageUrl: generatedImageUrl,
+              videoUrl: generatedVideoUrl,
+              userId:   currentUser.id,
+              style:    selectedStyle,
+              roomType: selectedRoom
+            })
+          }).catch(e=>console.warn('存檔失敗（不影響使用）:',e));
+        }
+      }catch(e){
+        console.error('完成顯示失敗:', e);
+        isGenerating=false;
+        document.getElementById('progressWrap').classList.remove('visible');
+        document.getElementById('resultSection').style.display='block';
+        const btn=document.getElementById('genBtn');btn.disabled=false;btn.textContent='開始生成影片｜消耗 20 點';
+        showToast('生成完成，但顯示時發生錯誤，請重新整理頁面');
       }
     },600);
   }catch(err){
