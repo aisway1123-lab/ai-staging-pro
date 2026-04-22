@@ -172,22 +172,17 @@ export default async function handler(req, res) {
   <div style="max-width:560px;margin:40px auto;background:#ffffff;border:1px solid rgba(26,26,24,0.1);">
     <div style="background:#2C4A3E;padding:32px;text-align:center;">
       <div style="color:#C4A468;font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;">AI STAGING PRO</div>
-      <div style="color:white;font-size:22px;font-weight:500;">試用申請審核結果</div>
+      <div style="color:white;font-size:22px;font-weight:500;">關於您的試用申請</div>
     </div>
     <div style="padding:40px 36px;">
       <p style="font-size:15px;color:#1A1A18;line-height:1.8;margin-bottom:20px;">您好，</p>
-      <p style="font-size:15px;color:#3D3D3A;line-height:1.8;margin-bottom:24px;">
-        感謝您申請 AI Staging Pro 試用方案。經審核後，您的申請資格未符合目前開放條件，本次申請暫未通過。
+      <p style="font-size:15px;color:#3D3D3A;line-height:1.8;margin-bottom:20px;">
+        感謝您申請 AI Staging Pro 試用方案。經審核，您的申請目前未能通過資格審查。
       </p>
       <div style="background:#F5EFE4;border-left:3px solid #A8844A;padding:16px 20px;margin-bottom:24px;">
         <div style="font-size:13px;color:#3D3D3A;line-height:1.9;">
-          如有任何疑問，或希望重新提交申請，歡迎透過 LINE 客服與我們聯繫，我們將竭誠為您服務。
+          本服務目前僅開放不動產業務、室內設計師、建商／代銷等專業人士申請試用。如您認為審核有誤，歡迎透過 LINE 與我們聯繫說明。
         </div>
-      </div>
-      <div style="text-align:center;margin-bottom:32px;">
-        <a href="https://line.me/R/ti/p/@536vcequ" style="display:inline-block;background:#06C755;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
-          聯繫 LINE 客服
-        </a>
       </div>
       <p style="font-size:13px;color:#8A8880;line-height:1.8;">
         LINE 官方帳號：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
@@ -321,6 +316,115 @@ export default async function handler(req, res) {
     </div>
     <div style="background:#F0EDE6;padding:20px;text-align:center;border-top:1px solid rgba(26,26,24,0.1);">
       <div style="font-size:11px;color:#8A8880;">AI Staging Pro｜空屋變夢想家</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  // ── 問卷邀請信 ──
+  else if (type === 'survey_invite') {
+    const surveyUrl = data?.surveyUrl || 'https://www.aistaging.pro/survey.html';
+    const expiresAt = data?.expiresAt || '';
+    subject = '【AI Staging Pro】感謝您的試用，填寫問卷領取專屬獎勵';
+    html = `
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F7F5F0;font-family:'DM Sans',sans-serif;">
+  <div style="max-width:560px;margin:40px auto;background:#ffffff;border:1px solid rgba(26,26,24,0.1);">
+    <div style="background:#2C4A3E;padding:32px;text-align:center;">
+      <div style="color:#C4A468;font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;">AI STAGING PRO</div>
+      <div style="color:white;font-size:22px;font-weight:500;">試用期結束，感謝您的體驗 🙏</div>
+    </div>
+    <div style="padding:40px 36px;">
+      <p style="font-size:15px;color:#1A1A18;line-height:1.8;margin-bottom:20px;">您好，</p>
+      <p style="font-size:15px;color:#3D3D3A;line-height:1.8;margin-bottom:24px;">
+        感謝您試用 AI Staging Pro。您的寶貴回饋對我們非常重要，只需 2 分鐘填寫問卷，即可解鎖專屬獎勵。
+      </p>
+      <div style="background:#EBF0EE;border-left:3px solid #2C4A3E;padding:20px 24px;margin-bottom:28px;">
+        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#2C4A3E;margin-bottom:12px;">🎁 填完問卷，解鎖專屬試用感謝禮</div>
+        <div style="font-size:13px;color:#3D3D3A;line-height:2.0;">
+          ◆ 訂閱迷你月付方案 → 自動獲得 <strong style="color:#2C4A3E;">100 點</strong>贈點<br>
+          ◆ 購買 399 點數包 → 自動加贈 <strong style="color:#2C4A3E;">50 點</strong>（共 150 點）
+        </div>
+        <div style="font-size:12px;color:#8A8880;margin-top:10px;padding-top:10px;border-top:1px solid rgba(26,26,24,0.1);">
+          以上獎勵需於問卷填寫完成後 15 天內使用（期限：${expiresAt}）
+        </div>
+      </div>
+      <div style="text-align:center;margin-bottom:32px;">
+        <a href="${surveyUrl}" style="display:inline-block;background:#2C4A3E;color:white;padding:16px 48px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
+          立即填寫問卷 →
+        </a>
+      </div>
+      <p style="font-size:12px;color:#C4C0B8;line-height:1.8;">
+        此問卷連結為您的專屬連結，每位用戶限填一次。<br>
+        如有問題請聯繫：LINE <a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
+      </p>
+    </div>
+    <div style="background:#F0EDE6;padding:20px;text-align:center;border-top:1px solid rgba(26,26,24,0.1);">
+      <div style="font-size:11px;color:#8A8880;line-height:1.8;">
+        AI Staging Pro｜空屋變夢想家<br>
+        <a href="https://www.aistaging.pro/terms.html" style="color:#8A8880;">服務條款</a>　|　
+        <a href="https://www.aistaging.pro/terms.html#privacy" style="color:#8A8880;">隱私政策</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  // ── 問卷完成確認信 ──
+  else if (type === 'survey_reward') {
+    const expiresAt = data?.expiresAt || '';
+    subject = '【AI Staging Pro】問卷已完成，您的專屬獎勵已自動生效！';
+    html = `
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F7F5F0;font-family:'DM Sans',sans-serif;">
+  <div style="max-width:560px;margin:40px auto;background:#ffffff;border:1px solid rgba(26,26,24,0.1);">
+    <div style="background:#2C4A3E;padding:32px;text-align:center;">
+      <div style="color:#C4A468;font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;">AI STAGING PRO</div>
+      <div style="color:white;font-size:22px;font-weight:500;">感謝您的回饋 🎁</div>
+    </div>
+    <div style="padding:40px 36px;">
+      <p style="font-size:15px;color:#1A1A18;line-height:1.8;margin-bottom:20px;">您好，</p>
+      <p style="font-size:15px;color:#3D3D3A;line-height:1.8;margin-bottom:24px;">
+        您的問卷已成功提交，感謝您的寶貴意見！專屬獎勵已自動綁定至您的帳號，<strong>無需任何操作</strong>。
+      </p>
+      <div style="background:#EBF0EE;border-left:3px solid #2C4A3E;padding:20px 24px;margin-bottom:24px;">
+        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#2C4A3E;margin-bottom:12px;">您的專屬獎勵</div>
+        <div style="font-size:13px;color:#3D3D3A;line-height:2.0;">
+          ◆ 訂閱迷你月付方案 → 自動獲得 <strong style="color:#2C4A3E;">100 點</strong>贈點<br>
+          ◆ 購買 399 點數包 → 自動加贈 <strong style="color:#2C4A3E;">50 點</strong>（共 150 點）
+        </div>
+      </div>
+      <div style="background:#F5EFE4;border-left:3px solid #A8844A;padding:16px 20px;margin-bottom:28px;">
+        <div style="font-size:12px;color:#6B5B3E;line-height:1.9;">
+          ✦ 獎勵已自動綁定，付費時系統將自動套用，無需手動輸入<br>
+          ✦ 訂閱贈點與點數包加贈均需於 <strong>${expiresAt}</strong> 前完成付費<br>
+          ✦ 每位用戶限領一次
+        </div>
+      </div>
+      <div style="text-align:center;margin-bottom:32px;">
+        <a href="https://www.aistaging.pro/pricing.html" style="display:inline-block;background:#2C4A3E;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;margin-right:8px;">
+          立即訂閱
+        </a>
+        <a href="https://www.aistaging.pro/pricing.html" style="display:inline-block;background:transparent;color:#2C4A3E;border:1px solid #2C4A3E;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
+          購買點數包
+        </a>
+      </div>
+      <p style="font-size:13px;color:#8A8880;line-height:1.8;">
+        如有任何問題，歡迎透過 LINE 聯繫我們：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
+      </p>
+    </div>
+    <div style="background:#F0EDE6;padding:20px;text-align:center;border-top:1px solid rgba(26,26,24,0.1);">
+      <div style="font-size:11px;color:#8A8880;line-height:1.8;">
+        AI Staging Pro｜空屋變夢想家<br>
+        <a href="https://www.aistaging.pro/terms.html" style="color:#8A8880;">服務條款</a>　|　
+        <a href="https://www.aistaging.pro/terms.html#privacy" style="color:#8A8880;">隱私政策</a>
+      </div>
     </div>
   </div>
 </body>

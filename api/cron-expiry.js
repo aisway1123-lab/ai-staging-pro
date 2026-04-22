@@ -36,8 +36,6 @@ export default async function handler(req, res) {
     console.log('點數到期清算完成:', expiryResult);
 
     // ── 到期前提醒 Email（trial: 2天前，pack: 7天前）──
-    // 找出即將到期、尚未發過提醒、type 為 trial 或 pack 的記錄
-    // trial 2天前提醒，pack 7天前提醒，分開查詢
     const trialReminderTarget = new Date();
     trialReminderTarget.setDate(trialReminderTarget.getDate() + 2);
     const trialReminderStart = new Date(trialReminderTarget);
@@ -80,12 +78,10 @@ export default async function handler(req, res) {
 
     for (const log of (pendingReminders || [])) {
       try {
-        // 取得用戶 email
         const { data: userData } = await supabase.auth.admin.getUserById(log.user_id);
         const email = userData?.user?.email;
         if (!email) continue;
 
-        // 計算剩餘點數（只計算這筆的剩餘，不是全部可用點數）
         const { data: consumed } = await supabase
           .from('credit_logs')
           .select('amount')
@@ -94,11 +90,9 @@ export default async function handler(req, res) {
         const usedAmount = (consumed || []).reduce((sum, c) => sum + Math.abs(c.amount), 0);
         const remainingCredits = Math.max(log.amount - usedAmount, 0);
 
-        // 格式化到期日（台灣時間）
         const expDate = new Date(log.expires_at);
         const expiresAt = `${expDate.getFullYear()}-${String(expDate.getMonth()+1).padStart(2,'0')}-${String(expDate.getDate()).padStart(2,'0')}`;
 
-        // 寄提醒信
         const emailType = log.type === 'trial' ? 'trial_expiring' : 'pack_expiring';
         const emailRes = await fetch(`${SITE_URL}/api/send-email`, {
           method: 'POST',
@@ -115,7 +109,6 @@ export default async function handler(req, res) {
         });
 
         if (emailRes.ok) {
-          // 標記已發送提醒
           await supabase
             .from('credit_logs')
             .update({ reminder_sent_at: new Date().toISOString() })
@@ -151,7 +144,6 @@ export default async function handler(req, res) {
 
     for (const log of (subExpiring || [])) {
       try {
-        // 只對 cancel_at_period_end=true 的用戶發提醒
         const { data: prof } = await supabase
           .from('profiles')
           .select('cancel_at_period_end')
@@ -187,7 +179,6 @@ export default async function handler(req, res) {
     }
 
     // ── 處理已取消但尚未降級的訂閱用戶 ──
-    // 找出 cancel_at_period_end=true 且所有 subscription 點數都已到期的用戶
     const { data: cancelPending } = await supabase
       .from('profiles')
       .select('id')
@@ -196,7 +187,6 @@ export default async function handler(req, res) {
 
     let cancelledCount = 0;
     for (const p of (cancelPending || [])) {
-      // 查該用戶是否還有未到期的 subscription 點數
       const { data: activeCredits } = await supabase
         .from('credit_logs')
         .select('id')
@@ -207,7 +197,6 @@ export default async function handler(req, res) {
         .limit(1);
 
       if (!activeCredits || activeCredits.length === 0) {
-        // 點數已全部到期，正式降級
         await supabase
           .from('profiles')
           .update({
@@ -227,12 +216,91 @@ export default async function handler(req, res) {
       console.log(`共處理 ${cancelledCount} 位取消訂閱用戶降級`);
     }
 
+    // ── 試用到期當天：發送問卷邀請 ──
+    // 找出今天到期的 trial credit_logs，且尚未有 survey_tokens 記錄的用戶
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const { data: trialExpiredToday } = await supabase
+      .from('credit_logs')
+      .select('user_id')
+      .eq('type', 'trial')
+      .gte('expires_at', todayStart.toISOString())
+      .lte('expires_at', todayEnd.toISOString())
+      .gt('amount', 0);
+
+    let surveyInviteCount = 0;
+
+    for (const log of (trialExpiredToday || [])) {
+      try {
+        // 防止重複：檢查是否已有 survey_tokens
+        const { data: existingToken } = await supabase
+          .from('survey_tokens')
+          .select('id')
+          .eq('user_id', log.user_id)
+          .maybeSingle();
+
+        if (existingToken) continue;
+
+        // 建立 survey_token（15天有效）
+        const tokenExpiresAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: newToken, error: tokenErr } = await supabase
+          .from('survey_tokens')
+          .insert({
+            user_id:    log.user_id,
+            expires_at: tokenExpiresAt,
+          })
+          .select('token')
+          .single();
+
+        if (tokenErr || !newToken) {
+          console.warn(`[cron-expiry] survey token 建立失敗 user=${log.user_id}:`, tokenErr?.message);
+          continue;
+        }
+
+        // 取得用戶 Email
+        const { data: userData } = await supabase.auth.admin.getUserById(log.user_id);
+        const email = userData?.user?.email;
+        if (!email) continue;
+
+        // 寄送問卷邀請信
+        const emailRes = await fetch(`${SITE_URL}/api/send-email`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'survey_invite',
+            to:   email,
+            data: {
+              surveyUrl: `${SITE_URL}/survey.html?token=${newToken.token}`,
+              expiresAt: tokenExpiresAt.split('T')[0],
+            }
+          })
+        });
+
+        if (emailRes.ok) {
+          surveyInviteCount++;
+          console.log(`[cron-expiry] 問卷邀請已寄送：${email}`);
+        } else {
+          console.warn(`[cron-expiry] 問卷邀請寄送失敗：${email}`);
+        }
+      } catch (e) {
+        console.warn(`[cron-expiry] 問卷邀請處理失敗 user=${log.user_id}:`, e.message);
+      }
+    }
+
+    if (surveyInviteCount > 0) {
+      console.log(`問卷邀請完成，共發送 ${surveyInviteCount} 封`);
+    }
+
     return res.status(200).json({
-      success:        true,
-      result:         expiryResult,
-      reminders_sent: reminderCount,
-      cancelled:      cancelledCount,
-      ran_at:         new Date().toISOString()
+      success:             true,
+      result:              expiryResult,
+      reminders_sent:      reminderCount,
+      cancelled:           cancelledCount,
+      survey_invites_sent: surveyInviteCount,
+      ran_at:              new Date().toISOString()
     });
 
   } catch (err) {

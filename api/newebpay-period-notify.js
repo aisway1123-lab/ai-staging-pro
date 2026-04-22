@@ -18,19 +18,16 @@ function aesDecrypt(encryptedHex) {
   decipher.setAutoPadding(false);
   let decrypted = decipher.update(Buffer.from(encryptedHex, 'hex'));
   decrypted = Buffer.concat([decrypted, decipher.final()]);
-  // 去除 PKCS7 padding
   const pad = decrypted[decrypted.length - 1];
   return decrypted.slice(0, decrypted.length - pad).toString('utf8');
 }
 
 // 計算訂閱點數到期日
-// 月繳：到當月最後一天；年繳：到當年最後一天
 function calcExpiresAt(billing) {
   const now = new Date();
   if (billing === 'yearly') {
     return new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString();
   }
-  // 月繳：取下個月第 0 天 = 本月最後一天
   return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
 }
 
@@ -59,19 +56,17 @@ export default async function handler(req, res) {
 
   const { Status, Result } = payload;
 
-  // 授權失敗：記錄但不寫 credit_logs
   if (Status !== 'SUCCESS') {
     console.warn('[period-notify] 授權失敗:', Status, Result);
-    // 仍回傳 200，避免藍新重複通知
     return res.status(200).send('OK');
   }
 
   const {
-    MerchantOrderNo,  // 商店訂單編號
-    PeriodNo,         // 委託單號（藍新產生）
-    AlreadyTimes,     // 已授權期數（含本次）
-    AuthAmt,          // 本期授權金額
-    AuthDate,         // 授權時間
+    MerchantOrderNo,
+    PeriodNo,
+    AlreadyTimes,
+    AuthAmt,
+    AuthDate,
   } = Result;
 
   if (!MerchantOrderNo || !PeriodNo) {
@@ -84,7 +79,7 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  // ── 查詢訂單取得 user_id / plan_type ──
+  // ── 查詢訂單 ──
   const { data: order, error: orderErr } = await supabase
     .from('orders')
     .select('user_id, plan_type, status, promo_code_id, promo_bonus_credits')
@@ -97,13 +92,12 @@ export default async function handler(req, res) {
   }
 
   const { user_id } = order;
-  // plan_type 例如 mini_monthly / standard_yearly
-  const planType   = order.plan_type || '';
+  const planType     = order.plan_type || '';
   const plan_level   = planType.startsWith('standard') ? 'standard' : 'mini';
   const plan_billing = planType.endsWith('yearly') ? 'yearly' : 'monthly';
   const alreadyTimes = parseInt(AlreadyTimes, 10) || 1;
 
-  // ── 冪等保護：用 PeriodNo + AlreadyTimes 防止重複寫入 ──
+  // ── 冪等保護 ──
   const idempotencyKey = `${PeriodNo}_${alreadyTimes}`;
   const { data: existing } = await supabase
     .from('credit_logs')
@@ -142,12 +136,11 @@ export default async function handler(req, res) {
     return res.status(500).send('DB error');
   }
 
-  // ── 同步 profiles.credits 快取（與 newebpay-webhook.js 邏輯一致）──
+  // ── 同步 profiles.credits 快取 ──
   const { data: creditData } = await supabase
     .rpc('get_available_credits', { p_user_id: user_id });
   const newCredits = creditData ?? 0;
 
-  // 基本欄位每期都更新
   const profileUpdate = {
     credits:      newCredits,
     role:         'subscriber',
@@ -155,7 +148,6 @@ export default async function handler(req, res) {
     plan_billing: plan_billing,
     period_no:    PeriodNo,
   };
-  // plan_started_at 只在首期設定，避免 undefined 寫入
   if (alreadyTimes === 1) {
     profileUpdate.plan_started_at = new Date().toISOString();
   }
@@ -202,7 +194,7 @@ export default async function handler(req, res) {
           .update({ used_count: (promoData?.used_count || 0) + 1 })
           .eq('id', order.promo_code_id);
 
-        // 清除 profiles.promo_code_id
+        // 清除 profiles.promo_code_id（問卷碼已使用完畢）
         await supabase.from('profiles')
           .update({ promo_code_id: null })
           .eq('id', user_id);
@@ -242,6 +234,59 @@ export default async function handler(req, res) {
       }
     } catch (e) {
       console.warn('[period-notify] 訂閱成功信寄送失敗:', e.message);
+    }
+  }
+
+  // ── 首期：查 survey_rewards，符合資格則給 +100 點 ──
+  if (alreadyTimes === 1) {
+    try {
+      const { data: reward } = await supabase
+        .from('survey_rewards')
+        .select('id, subscription_bonus_sent, subscription_bonus_expires_at')
+        .eq('user_id', user_id)
+        .maybeSingle();
+
+      if (
+        reward &&
+        !reward.subscription_bonus_sent &&
+        reward.subscription_bonus_expires_at &&
+        new Date(reward.subscription_bonus_expires_at) > new Date() &&
+        planType === 'mini_monthly'
+      ) {
+        const bonusExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+        const { error: bonusErr } = await supabase
+          .from('credit_logs')
+          .insert({
+            user_id:    user_id,
+            type:       'survey_reward',
+            amount:     100,
+            expires_at: bonusExpiresAt,
+            source_id:  reward.id,
+            note:       '試用問卷獎勵：訂閱迷你月付贈點',
+          });
+
+        if (!bonusErr) {
+          await supabase
+            .from('survey_rewards')
+            .update({ subscription_bonus_sent: true })
+            .eq('id', reward.id);
+
+          // 同步 profiles.credits 快取
+          const { data: updatedCredits } = await supabase
+            .rpc('get_available_credits', { p_user_id: user_id });
+          await supabase
+            .from('profiles')
+            .update({ credits: updatedCredits ?? 0 })
+            .eq('id', user_id);
+
+          console.log(`[period-notify] 問卷獎勵贈點完成：${user_id} +100 點`);
+        } else {
+          console.error('[period-notify] 問卷獎勵贈點失敗:', bonusErr.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[period-notify] 問卷獎勵處理失敗:', e.message);
     }
   }
 
