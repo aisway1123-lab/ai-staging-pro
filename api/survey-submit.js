@@ -149,7 +149,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           type: 'survey_reward',
           to:   email,
-          data: { validUntil: validUntil.split('T')[0] }
+          data: { expiresAt: validUntil.split('T')[0] }
         })
       });
     }
