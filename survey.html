@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>試用回饋問卷 — AI Staging Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --forest:   #2C4A3E;
+      --gold:     #C4A468;
+      --warm:     #A8844A;
+      --cream:    #F7F5F0;
+      --paper:    #F0EDE6;
+      --ink:      #1A1A18;
+      --ink-mid:  #3D3D3A;
+      --ink-mute: #8A8880;
+      --ink-pale: #C4C0B8;
+      --border:   rgba(26,26,24,0.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--cream);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--ink-mid);
+      min-height: 100vh;
+      padding: 48px 16px;
+    }
+
+    /* ── Layout ── */
+    .wrap {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── Reward Banner ── */
+    .reward-banner {
+      background: var(--forest);
+      padding: 28px 32px;
+      margin-bottom: 2px;
+    }
+    .reward-banner .label {
+      color: var(--gold);
+      font-size: 10px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .reward-banner h1 {
+      font-family: 'DM Serif Display', serif;
+      color: #fff;
+      font-size: 22px;
+      font-weight: 400;
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+    .reward-items {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .reward-item {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.6;
+    }
+    .reward-item .bullet {
+      color: var(--gold);
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .reward-item strong { color: #fff; }
+    .reward-note {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Form Card ── */
+    .form-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 40px 36px;
+    }
+
+    /* ── Section Label ── */
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 28px;
+    }
+
+    /* ── Question ── */
+    .question {
+      margin-bottom: 36px;
+    }
+    .question:last-of-type {
+      margin-bottom: 0;
+    }
+    .q-num {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .q-text {
+      font-size: 15px;
+      color: var(--ink);
+      font-weight: 500;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .q-hint {
+      font-size: 12px;
+      color: var(--ink-mute);
+      margin-top: -10px;
+      margin-bottom: 14px;
+    }
+
+    /* ── Radio / Checkbox Options ── */
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .opt-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      font-size: 14px;
+      color: var(--ink-mid);
+      user-select: none;
+    }
+    .opt-label:hover {
+      border-color: var(--forest);
+      background: #EBF0EE;
+    }
+    .opt-label input[type="radio"],
+    .opt-label input[type="checkbox"] {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid var(--ink-pale);
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+    }
+    .opt-label input[type="radio"] { border-radius: 50%; }
+    .opt-label input[type="radio"]:checked,
+    .opt-label input[type="checkbox"]:checked {
+      background: var(--forest);
+      border-color: var(--forest);
+    }
+    .opt-label input[type="radio"]:checked::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .opt-label input[type="checkbox"]:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      font-size: 10px;
+      color: #fff;
+      font-weight: 700;
+    }
+    .opt-label:has(input:checked) {
+      border-color: var(--forest);
+      background: #EBF0EE;
+      color: var(--forest);
+    }
+
+    /* ── Star Rating ── */
+    .stars {
+      display: flex;
+      gap: 8px;
+    }
+    .stars input[type="radio"] { display: none; }
+    .stars label {
+      font-size: 32px;
+      cursor: pointer;
+      color: var(--ink-pale);
+      transition: color .1s, transform .1s;
+      line-height: 1;
+    }
+    .stars label:hover,
+    .stars label:hover ~ label,
+    .stars input:checked ~ label {
+      color: var(--gold);
+    }
+    /* Reverse trick for star fill */
+    .stars {
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+    }
+    .stars label:hover,
+    .stars label:hover ~ label {
+      color: var(--gold);
+    }
+    .stars input:checked ~ label {
+      color: var(--gold);
+    }
+
+    /* ── Textarea ── */
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--ink);
+      resize: vertical;
+      min-height: 100px;
+      background: #fff;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea:focus { border-color: var(--forest); }
+    textarea::placeholder { color: var(--ink-pale); }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 36px 0;
+    }
+
+    /* ── Submit Notice ── */
+    .submit-notice {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      font-size: 12px;
+      color: var(--ink-mute);
+      line-height: 1.9;
+    }
+    .submit-notice .notice-title {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--warm);
+      margin-bottom: 8px;
+    }
+
+    /* ── Submit Button ── */
+    .btn-submit {
+      width: 100%;
+      background: var(--forest);
+      color: #fff;
+      border: none;
+      padding: 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .2s, opacity .2s;
+    }
+    .btn-submit:hover { background: #1e3328; }
+    .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── State Pages ── */
+    .state-page {
+      display: none;
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 60px 36px;
+      text-align: center;
+    }
+    .state-icon { font-size: 48px; margin-bottom: 20px; }
+    .state-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 26px;
+      color: var(--ink);
+      margin-bottom: 14px;
+    }
+    .state-body {
+      font-size: 14px;
+      color: var(--ink-mute);
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+    .btn-goto {
+      display: inline-block;
+      background: var(--forest);
+      color: #fff;
+      padding: 14px 40px;
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .btn-goto + .btn-goto {
+      margin-left: 10px;
+      background: transparent;
+      color: var(--forest);
+      border: 1px solid var(--forest);
+    }
+
+    /* ── Error msg ── */
+    .err-msg {
+      font-size: 13px;
+      color: #b85c38;
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 480px) {
+      .reward-banner, .form-card { padding: 28px 20px; }
+      .state-page { padding: 40px 20px; }
+      .btn-goto + .btn-goto { margin-left: 0; margin-top: 10px; display: block; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ── 主要問卷區塊 ── -->
+  <div id="main-form">
+    <!-- 獎勵說明 Banner -->
+    <div class="reward-banner">
+      <div class="label">AI Staging Pro — 試用回饋</div>
+      <h1>填完問卷，解鎖<br>專屬試用感謝禮</h1>
+      <div class="reward-items">
+        <div class="reward-item">
+          <span class="bullet">◆</span>
+          <span>訂閱迷你月付方案 → 自動獲得 <strong>100 點</strong>贈點</span>
+        </div>
+        <div class="reward-item">
+          <span class="bullet">◆</span>
+          <span>購買 399 點數包 → 自動加贈 <strong>50 點</strong>（共 150 點）</span>
+        </div>
+      </div>
+      <div class="reward-note" id="reward-note">以上獎勵需於問卷填寫完成後 15 天內使用</div>
+    </div>
+
+    <!-- 問卷表單 -->
+    <div class="form-card">
+      <div class="section-label">約 2 分鐘 · 共 6 題</div>
+
+      <!-- Q1 -->
+      <div class="question">
+        <div class="q-num">Q 01</div>
+        <div class="q-text">您目前的身份是？</div>
+        <div class="options">
+          <label class="opt-label"><input type="radio" name="q1" value="agent"> 不動產業務／房仲</label>
+          <label class="opt-label"><input type="radio" name="q1" value="designer"> 室內設計師</label>
+          <label class="opt-label"><input type="radio" name="q1" value="developer"> 建商／代銷</label>
+          <label class="opt-label"><input type="radio" name="q1" value="landlord"> 房東／個人出租</label>
+          <label class="opt-label"><input type="radio" name="q1" value="other"> 其他</label>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="question">
+        <div class="q-num">Q 02</div>
+        <div class="q-text">試用期間，AI Staging Pro 有沒有幫助您解決實際工作上的問題？</div>
+        <div class="options">
+          <label class="opt-label"><input type="radio" name="q2" value="very_helpful"> 有，明顯有幫助</label>
+          <label class="opt-label"><input type="radio" name="q2" value="somewhat"> 有一點，但效果有限</label>
+          <label class="opt-label"><input type="radio" name="q2" value="no_chance"> 還沒機會用在實際工作上</label>
+          <label class="opt-label"><input type="radio" name="q2" value="not_helpful"> 沒有幫助</label>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="question">
+        <div class="q-num">Q 03</div>
+        <div class="q-text">您對生成結果的整體品質滿意嗎？</div>
+        <div class="stars" id="stars">
+          <input type="radio" name="q3" id="s5" value="5"><label for="s5" title="5 顆星">★</label>
+          <input type="radio" name="q3" id="s4" value="4"><label for="s4" title="4 顆星">★</label>
+          <input type="radio" name="q3" id="s3" value="3"><label for="s3" title="3 顆星">★</label>
+          <input type="radio" name="q3" id="s2" value="2"><label for="s2" title="2 顆星">★</label>
+          <input type="radio" name="q3" id="s1" value="1"><label for="s1" title="1 顆星">★</label>
+        </div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="question">
+        <div class="q-num">Q 04</div>
+        <div class="q-text">使用過程中，有沒有讓您感到困惑或不順的地方？</div>
+        <div class="q-hint">可複選</div>
+        <div class="options">
+          <label class="opt-label"><input type="checkbox" name="q4" value="upload"> 上傳圖片的規格要求</label>
+          <label class="opt-label"><input type="checkbox" name="q4" value="style"> 不知道怎麼選風格</label>
+          <label class="opt-label"><input type="checkbox" name="q4" value="result"> 生成結果不符合預期</label>
+          <label class="opt-label"><input type="checkbox" name="q4" value="speed"> 等待時間太長</label>
+          <label class="opt-label"><input type="checkbox" name="q4" value="credits"> 點數計算方式不清楚</label>
+          <label class="opt-label"><input type="checkbox" name="q4" value="none"> 沒有遇到困難</label>
+        </div>
+      </div>
+
+      <!-- Q5 -->
+      <div class="question">
+        <div class="q-num">Q 05</div>
+        <div class="q-text">試用結束後，您考慮訂閱的最大障礙是？</div>
+        <div class="options">
+          <label class="opt-label"><input type="radio" name="q5" value="price"> 月費太高</label>
+          <label class="opt-label"><input type="radio" name="q5" value="frequency"> 不確定長期是否用得到</label>
+          <label class="opt-label"><input type="radio" name="q5" value="feature"> 功能還不夠完整</label>
+          <label class="opt-label"><input type="radio" name="q5" value="wait"> 想再觀察一段時間</label>
+          <label class="opt-label"><input type="radio" name="q5" value="subscribed"> 已經決定訂閱了！🎉</label>
+        </div>
+      </div>
+
+      <!-- Q6 -->
+      <div class="question">
+        <div class="q-num">Q 06</div>
+        <div class="q-text">有什麼想告訴我們的？</div>
+        <div class="q-hint">選填 — 任何想法都歡迎</div>
+        <textarea name="q6" placeholder="例如：希望增加哪種風格、對哪個功能有期待…"></textarea>
+      </div>
+
+      <hr class="divider">
+
+      <!-- 送出前說明 -->
+      <div class="submit-notice">
+        <div class="notice-title">✦ 獎勵領取說明</div>
+        獎勵將於您送出問卷後自動綁定至帳號，付費時系統自動套用，無需手動輸入任何代碼。<br>
+        訂閱贈點與點數包加贈各有 <strong>15 天有效期限</strong>，每位用戶限領一次。
+      </div>
+
+      <div class="err-msg" id="err-msg">⚠ 請完成必填題目（Q1–Q5）後再提交。</div>
+
+      <button class="btn-submit" id="btn-submit" onclick="submitSurvey()">
+        提交問卷，領取獎勵 →
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 成功頁 ── -->
+  <div class="state-page" id="page-success">
+    <div class="state-icon">🎁</div>
+    <div class="state-title">感謝您的回饋！</div>
+    <div class="state-body">
+      您的問卷已成功提交，專屬獎勵已自動綁定至您的帳號。<br>
+      我們已寄送確認信至您的 Email，請確認收信。<br><br>
+      <strong>記得在 15 天內完成訂閱或購買點數包，以使用您的獎勵。</strong>
+    </div>
+    <a href="https://www.aistaging.pro/pricing.html" class="btn-goto">立即訂閱</a>
+    <a href="https://www.aistaging.pro/pricing.html" class="btn-goto">購買點數包</a>
+  </div>
+
+  <!-- ── 已填寫頁 ── -->
+  <div class="state-page" id="page-used">
+    <div class="state-icon">✅</div>
+    <div class="state-title">您已填寫過問卷</div>
+    <div class="state-body">
+      此問卷每位用戶限填一次，您的獎勵已於先前填寫時自動綁定。<br>
+      如有疑問請聯繫 LINE：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
+    </div>
+  </div>
+
+  <!-- ── 過期頁 ── -->
+  <div class="state-page" id="page-expired">
+    <div class="state-icon">⏰</div>
+    <div class="state-title">問卷連結已過期</div>
+    <div class="state-body">
+      此問卷連結有效期限為 15 天，目前已超過期限。<br>
+      如有疑問請聯繫 LINE：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
+    </div>
+  </div>
+
+  <!-- ── 無效連結頁 ── -->
+  <div class="state-page" id="page-invalid">
+    <div class="state-icon">🔗</div>
+    <div class="state-title">無效的問卷連結</div>
+    <div class="state-body">
+      此連結無效或已失效。<br>
+      如有疑問請聯繫 LINE：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
+    </div>
+  </div>
+
+</div><!-- /.wrap -->
+
+<script>
+  // 取得 token
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('token');
+
+  // 沒有 token 直接顯示無效頁
+  if (!token) {
+    document.getElementById('main-form').style.display = 'none';
+    document.getElementById('page-invalid').style.display = 'block';
+  }
+
+  async function submitSurvey() {
+    // 必填驗證 Q1–Q5
+    const q1 = document.querySelector('input[name="q1"]:checked')?.value;
+    const q2 = document.querySelector('input[name="q2"]:checked')?.value;
+    const q3 = document.querySelector('input[name="q3"]:checked')?.value;
+    const q4 = [...document.querySelectorAll('input[name="q4"]:checked')].map(el => el.value);
+    const q5 = document.querySelector('input[name="q5"]:checked')?.value;
+    const q6 = document.querySelector('textarea[name="q6"]')?.value.trim();
+
+    const errEl = document.getElementById('err-msg');
+    if (!q1 || !q2 || !q3 || q4.length === 0 || !q5) {
+      errEl.style.display = 'block';
+      errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    errEl.style.display = 'none';
+
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.textContent = '提交中…';
+
+    try {
+      const res = await fetch('/api/survey-submit', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, q1, q2, q3, q4, q5, q6 })
+      });
+
+      const data = await res.json();
+
+      document.getElementById('main-form').style.display = 'none';
+
+      if (res.ok) {
+        document.getElementById('page-success').style.display = 'block';
+      } else if (res.status === 409) {
+        document.getElementById('page-used').style.display = 'block';
+      } else if (res.status === 410) {
+        document.getElementById('page-expired').style.display = 'block';
+      } else {
+        document.getElementById('page-invalid').style.display = 'block';
+      }
+
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '提交問卷，領取獎勵 →';
+      alert('提交失敗，請稍後再試或聯繫客服。');
+    }
+  }
+</script>
+</body>
+</html>
