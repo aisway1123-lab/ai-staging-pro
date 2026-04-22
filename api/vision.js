@@ -62,15 +62,17 @@ export default async function handler(req, res) {
   "fixed_decor_interference": "none" | "moderate" | "severe",
   "image_quality": "good" | "acceptable" | "poor",
   "summary": "一句話總結（繁體中文，20字以內）",
-  "suggestions": ["建議1", "建議2"]
+  "suggestions": ["建議1", "建議2"],
+  "has_exposed_wires": true | false,
+  "has_builtin_wardrobe": true | false
 }
 
 評估標準（嚴格執行）：
 
 image_quality 判斷（最優先）：
-- good：照片銳利清晰，邊緣分明，光線均勻，細節可見
-- acceptable：輕微模糊但空間結構清楚，光線尚可
-- poor：明顯模糊、過曝、過暗、或嚴重噪點，細節無法辨認
+- good：照片銳利清晰，邊緣分明，光線均勻（空間各區域亮度接近，無強烈陰影或逆光），細節可見
+- acceptable：輕微模糊但空間結構清楚，或輕微亮度不均但仍可辨認空間輪廓
+- poor：明顯模糊、過曝、過暗、嚴重噪點，或嚴重逆光／強烈陰影遮蔽空間結構，細節無法辨認
 
 overall 判斷：
 - pass：image_quality 為 good，空間整潔（clutter_level low），適合直接生成
@@ -87,7 +89,15 @@ fixed_decor_interference：壁紙、花磁磚、木作等固定裝潢對 AI 風�
 - moderate：有花紋或顏色但不強烈
 - severe：強烈花紋、深色木作或複雜磁磚，風格難以覆蓋
 
-suggestions：針對 warn 或 fail 給具體可行的建議，最多2條，繁體中文`
+has_exposed_wires：牆面或天花板是否有裸露電線、線管或裸露線頭
+- true：可見裸露電線或線頭
+- false：無裸露電線
+
+has_builtin_wardrobe：牆面是否有崁入式衣櫃、書櫃或固定收納櫃
+- true：有崁入式固定收納結構
+- false：無崁入式固定收納結構
+
+suggestions：針對 warn 或 fail 給具體可行的建議，最多2條，繁體中文。若亮度不均勻，建議「拍攝時確保室內燈光全開，避免逆光或單側強光」`
             }
           ]
         }]

@@ -24,7 +24,8 @@ export default async function handler(req, res) {
 
   // ── 圖生圖（效果圖）──
   if (action === 'stageImage') {
-    const { imageUrl, styleKey, roomKey } = req.body;
+    const { imageUrl, styleKey, roomKey, visionFeatures } = req.body;
+    const USE_VISION_PROMPT = true;
     if (!imageUrl || !styleKey || !roomKey) return res.status(400).json({ error: '缺少參數' });
 
     const STYLE_PROMPTS = {
@@ -44,11 +45,16 @@ export default async function handler(req, res) {
       multi_purpose: "Room type: Multi-purpose Room. A flexible space for guests or hobbies. Replace existing furniture with minimal, functional pieces such as a compact daybed, a light desk, or modular storage."
     };
 
-    const A_Structure = `Stage this empty room with furniture and decor matching the style above. Replace floor with style-appropriate material. Replace ceiling fixtures with style-appropriate lighting. Remove all wires, cables, clutter, and non-structural objects from walls. Keep all walls, windows, and doors exactly as shown.`;
+    const A_Structure = `Stage this empty room with furniture and decor matching the style above. Replace floor surface with a new seamless material appropriate to the selected style — do not preserve the original floor. Replace ceiling fixtures with style-appropriate lighting. Remove all wires, cables, clutter, and non-structural objects from walls. Keep all walls, windows, and doors exactly as shown.`;
     const E_Presentation = `Interior staging visualization. High realism, professional real estate presentation. Designed to look like a model home. Visually appealing, aspirational, and marketable. Ceiling remains clean and simple, appropriate to the selected style.`;
-    const F_Negative = `Do not include: people, animals, text, watermark, fantasy, cartoon, new windows, new doors.`;
+    const F_Negative = `Do not include: people, animals, text, watermark, fantasy, cartoon, new windows, new doors. Do not add any windows that do not exist in the original image.`;
 
-    const fullPrompt = `${STYLE_PROMPTS[styleKey]} ${A_Structure} ${ROOM_PROMPTS[roomKey]} ${E_Presentation} ${F_Negative} 8K resolution, ultra high definition.`;
+    let dynamicPrompt = '';
+    if (USE_VISION_PROMPT && visionFeatures) {
+      if (visionFeatures.has_exposed_wires) dynamicPrompt += ' Remove all exposed wires and cables from walls and ceiling.';
+      if (visionFeatures.has_builtin_wardrobe) dynamicPrompt += ' If there is an existing built-in wardrobe, retain its position and restyle it to match the selected style.';
+    }
+    const fullPrompt = `${STYLE_PROMPTS[styleKey]} ${A_Structure} ${ROOM_PROMPTS[roomKey]} ${E_Presentation} ${F_Negative}${dynamicPrompt} 8K resolution, ultra high definition.`;
     const body = { prompt: fullPrompt, image_urls: [imageUrl], lora_scale: 1.0, guidance_scale: 3.0, num_inference_steps: 40, num_images: 1, output_format: "png", enable_safety_checker: true };
 
     try {
