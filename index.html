@@ -905,6 +905,7 @@ let currentUser=null,currentProfile=null;
 let selectedStyle='',selectedRoom='',uploadedImageBase64=null,uploadedImageUrl=null,imageAspectRatio='16:9';
 let generatedVideoUrl=null,generatedImageUrl=null;
 let isGenerating=false;
+let visionFeatures=null;
 
 async function initAuth(){
   let loginInProgress=false;
@@ -1316,6 +1317,7 @@ function runPreCheck(){
       const response=await fetch('/api/vision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:base64Image,mimeType})});
       if(!response.ok)throw new Error('Vision API 錯誤');
       const result=await response.json();
+      visionFeatures={has_exposed_wires:result.has_exposed_wires||false,has_builtin_wardrobe:result.has_builtin_wardrobe||false};
       renderVisionResult(pc,pb,result);
     }catch(err){
       pc.className='precheck';
@@ -1342,6 +1344,8 @@ function renderVisionResult(pc,pb,result){
       <div class="vision-item"><span class="vi-icon">📦</span><span>雜物程度：<strong style="color:var(--ink)">${clutterText[result.clutter_level]||'—'}</strong></span></div>
       <div class="vision-item"><span class="vi-icon">🏠</span><span>固定裝潢干擾：<strong style="color:var(--ink)">${fixedText[result.fixed_decor_interference]||'—'}</strong></span></div>
       <div class="vision-item"><span class="vi-icon">📷</span><span>照片品質：<strong style="color:var(--ink)">${qualityText[result.image_quality]||'—'}</strong></span></div>
+      ${result.has_exposed_wires?'<div class="vision-item"><span class="vi-icon">⚡</span><span>裸露電線：<strong style="color:#C04B3A">偵測到，將自動清除</strong></span></div>':''}
+      ${result.has_builtin_wardrobe?'<div class="vision-item"><span class="vi-icon">🚪</span><span>崁入式收納：<strong style="color:var(--ink)">偵測到，將保留並更新風格</strong></span></div>':''}
       ${suggestions}
     </div>
     ${overall==='fail'?'<div style="margin-top:10px;font-size:11px;color:#C04B3A;">建議重新拍攝，您仍可點生成按鈕繼續。</div>':overall==='warn'?'<div style="margin-top:10px;font-size:11px;color:var(--gold);">效果可能受部分影響，清理後重拍效果更佳。</div>':''}
@@ -1349,7 +1353,7 @@ function renderVisionResult(pc,pb,result){
 }
 
 function resetUpload(e){
-  e.stopPropagation();uploadedImageBase64=null;uploadedImageUrl=null;
+  e.stopPropagation();uploadedImageBase64=null;uploadedImageUrl=null;visionFeatures=null;
   uz.classList.remove('has-image');
   uz.innerHTML=`<input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif"><div class="upload-icon">🏠</div><div class="upload-text"><strong>點擊或拖曳上傳照片</strong>支援橫式或直式空屋照，保留原始比例</div><div class="upload-hint">JPG / PNG / WebP｜建議 1MB 以上清晰圖片</div><button class="change-btn" onclick="resetUpload(event)">重新上傳</button>`;
   const fi=document.getElementById('fileInput');
@@ -1374,7 +1378,7 @@ async function uploadImageToFal(base64DataUrl){
 }
 async function generateStagedImage(imageUrl,styleKey,roomKey){
   setProgress('生成裝潢效果圖…',20);
-  const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'stageImage',imageUrl,styleKey,roomKey})});
+  const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'stageImage',imageUrl,styleKey,roomKey,visionFeatures})});
   if(!res.ok)throw new Error('效果圖生成失敗，請重試');
   const data=await res.json();
   if(data.requestId)return await pollResult(data.requestId,'fal-ai/flux-2-lora-gallery/apartment-staging',20,50);
