@@ -1454,36 +1454,38 @@ async function startGeneration(){
   document.getElementById('errorBox').classList.remove('visible');
   setProgress('準備中…',3);
 
-  const{data:genCheck}=await _sb.from('profiles').select('is_generating, updated_at').eq('id',currentUser.id).single();
-  if(genCheck?.is_generating){
-    const minutesElapsed=(Date.now()-new Date(genCheck.updated_at))/60000;
-    if(minutesElapsed<10){
-      showToast('生成中，請勿重複送出');
-      genBtn.disabled=false;genBtn.textContent='開始生成影片｜消耗 20 點';
-      document.getElementById('progressWrap').classList.remove('visible');
-      isGenerating=false;
-      return;
+  // is_generating 檢查：加 3 秒 timeout，避免 Supabase 查詢 hang 住卡在 3%
+  try{
+    const timeoutPromise=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
+    const queryPromise=_sb.from('profiles').select('is_generating,updated_at').eq('id',currentUser.id).single();
+    const{data:genCheck}=await Promise.race([queryPromise,timeoutPromise]);
+    if(genCheck?.is_generating){
+      const minutesElapsed=(Date.now()-new Date(genCheck.updated_at))/60000;
+      if(minutesElapsed<10){
+        showToast('生成中，請勿重複送出');
+        genBtn.disabled=false;genBtn.textContent='開始生成影片｜消耗 20 點';
+        document.getElementById('progressWrap').classList.remove('visible');
+        isGenerating=false;
+        return;
+      }
+      await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
+      console.warn('is_generating 超時，已自動重置');
     }
-    // 超過 10 分鐘視為卡住，自動重置
-    await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
-    console.warn('is_generating 超時，已自動重置');
+    await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id).then(()=>{}).catch(()=>{});
+  }catch(e){
+    // 查詢 timeout 或失敗，跳過 DB 鎖定直接繼續
+    console.warn('is_generating 檢查跳過：',e.message);
+    _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id).then(()=>{}).catch(()=>{});
   }
-  await _sb.from('profiles').update({is_generating:true,updated_at:new Date().toISOString()}).eq('id',currentUser.id);
   try{
     setProgress('上傳圖片中…',5);
     uploadedImageUrl=await uploadImageToFal(uploadedImageBase64);setProgress('生成裝潢效果圖…',12);
     generatedImageUrl=await generateStagedImage(uploadedImageUrl,selectedStyle,selectedRoom);
-    if(!generatedImageUrl)throw new Error('圖生圖未回傳結果，請重試');
+    if(!generatedImageUrl)throw new Error('圖生圖未回傳結果，請重試');setProgress('生成動態影片…',52);
     document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">Step 1 完成｜AI 生成，僅供參考｜AI Staging Pro</div>`;
-    if(window.skipVideo){
-      generatedVideoUrl=null;
-      setProgress('完成！（測試模式，略過影片）',100);
-    }else{
-      setProgress('生成動態影片…',52);
-      generatedVideoUrl=await generateVideo(uploadedImageUrl,generatedImageUrl,selectedStyle);
-      if(!generatedVideoUrl)throw new Error('圖生影未回傳結果，請重試');setProgress('完成！',100);
-      const deducted=await deductCredits(20);if(!deducted){showToast('點數扣除失敗，請重新整理後再試');}
-    }
+    generatedVideoUrl=await generateVideo(uploadedImageUrl,generatedImageUrl,selectedStyle);
+    if(!generatedVideoUrl)throw new Error('圖生影未回傳結果，請重試');setProgress('完成！',100);
+    const deducted=await deductCredits(20);if(!deducted){showToast('點數扣除失敗，請重新整理後再試');}
     setTimeout(async()=>{
       // ── is_generating 重置（失敗不影響後續）──
       try{ await _sb.from('profiles').update({is_generating:false,updated_at:new Date().toISOString()}).eq('id',currentUser.id); }catch(e){ console.warn('is_generating 重置失敗:',e); }
@@ -1494,9 +1496,7 @@ async function startGeneration(){
         const sName=STYLE_PROMPTS[selectedStyle]?.label||selectedStyle;
         const rName=ROOM_NAMES[selectedRoom]||selectedRoom;
         document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
-        document.getElementById('resultVid').innerHTML=window.skipVideo
-          ? `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-muted);font-size:13px;">🧪 測試模式：略過影片生成</div>`
-          : `<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
+        document.getElementById('resultVid').innerHTML=`<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
         isGenerating=false;
         const btn=document.getElementById('genBtn');btn.disabled=false;btn.textContent='開始生成影片｜消耗 20 點';
         showToast(`✓ 完成！${sName} × ${rName}，已扣除 20 點`);
@@ -1508,8 +1508,8 @@ async function startGeneration(){
         document.getElementById('genBtn').textContent='開始生成影片｜消耗 20 點';
         showToast('生成完成，請重新整理頁面查看結果');
       }
-      // ── 存檔在背景執行（測試模式略過）──
-      if(currentUser && !window.skipVideo){
+      // ── 存檔在背景執行 ──
+      if(currentUser){
         fetch('/api/save-generation',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
