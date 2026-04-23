@@ -72,7 +72,11 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: `效果圖生成失敗：${submitRes.status}` });
       }
       const result = await submitRes.json();
-      if (result.request_id) return res.status(200).json({ requestId: result.request_id });
+      if (result.request_id) return res.status(200).json({
+        requestId:   result.request_id,
+        statusUrl:   result.status_url   || null,
+        responseUrl: result.response_url || null,
+      });
       return res.status(500).json({ error: '效果圖提交未取得 request_id' });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -81,19 +85,28 @@ export default async function handler(req, res) {
 
   // ── 輪詢圖生圖狀態 ──
   if (action === 'pollStatus') {
-    const { requestId, modelPath } = req.body;
+    const { requestId, modelPath, statusUrl: clientStatusUrl, responseUrl: clientResponseUrl } = req.body;
     if (!requestId || !modelPath) return res.status(400).json({ error: '缺少參數' });
 
     try {
-      const statusUrl = `https://queue.fal.run/${modelPath}/requests/${requestId}/status`;
+      // 優先使用 submit 時回傳的 status_url，否則自己組
+      const statusUrl = clientStatusUrl
+        || `https://queue.fal.run/${modelPath}/requests/${requestId}/status`;
       const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
-      if (!statusRes.ok) return res.status(200).json({ status: 'IN_PROGRESS' });
+      if (!statusRes.ok) {
+        const errText = await statusRes.text();
+        console.log('pollStatus - HTTP error:', statusRes.status, errText.slice(0,300));
+        return res.status(200).json({ status: 'IN_PROGRESS' });
+      }
       const status = await statusRes.json();
       console.log('pollStatus - full status JSON:', JSON.stringify(status));
       const statusVal = status.status?.toUpperCase();
 
       if (statusVal === 'COMPLETED') {
-        const resultRes = await fetch(`https://queue.fal.run/${modelPath}/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
+        // 優先使用 submit 時回傳的 response_url，否則自己組
+        const resultUrl = clientResponseUrl
+          || `https://queue.fal.run/${modelPath}/requests/${requestId}`;
+        const resultRes = await fetch(resultUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
         const resultData = await resultRes.json();
         console.log('pollStatus - resultData:', JSON.stringify(resultData).slice(0, 300));
         const imageUrl = resultData.images?.[0]?.url || resultData.image?.url || null;
