@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       if (visionFeatures.has_builtin_wardrobe) dynamicPrompt += ' If there is an existing built-in wardrobe, retain its position and restyle it to match the selected style.';
     }
     const fullPrompt = `${STYLE_PROMPTS[styleKey]} ${A_Structure} ${ROOM_PROMPTS[roomKey]} ${E_Presentation} ${F_Negative}${dynamicPrompt} 8K resolution, ultra high definition.`;
-    const body = { prompt: fullPrompt, image_urls: [imageUrl], lora_scale: 1.0, guidance_scale: 3.0, num_inference_steps: 40, num_images: 1, output_format: "png", enable_safety_checker: true };
+    const body = { prompt: fullPrompt, image_urls: [imageUrl], lora_scale: 0.75, guidance_scale: 2.1, num_inference_steps: 40, num_images: 1, output_format: "png", enable_safety_checker: true };
 
     try {
       const submitRes = await fetch('https://fal.run/fal-ai/flux-2-lora-gallery/apartment-staging', {
