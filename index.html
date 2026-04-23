@@ -1381,7 +1381,7 @@ async function generateStagedImage(imageUrl,styleKey,roomKey){
   const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'stageImage',imageUrl,styleKey,roomKey,visionFeatures})});
   if(!res.ok)throw new Error('效果圖生成失敗，請重試');
   const data=await res.json();
-  if(data.requestId)return await pollResult(data.requestId,'fal-ai/flux-2-lora-gallery/apartment-staging',20,50);
+  if(data.requestId)return await pollResult(data.requestId,'fal-ai/flux-2-lora-gallery/apartment-staging',20,50,data.statusUrl||null,data.responseUrl||null);
   if(!data.imageUrl)throw new Error('效果圖生成失敗，請重試');
   return data.imageUrl;
 }
@@ -1394,13 +1394,13 @@ async function generateVideo(startImageUrl,endImageUrl,styleKey){
   if(!data.videoUrl)throw new Error('影片生成失敗，請重試');
   return data.videoUrl;
 }
-async function pollResult(requestId,modelPath,startPct,endPct){
+async function pollResult(requestId,modelPath,startPct,endPct,statusUrl,responseUrl){
   let attempts=0;
   while(attempts<120){
     await sleep(2000);attempts++;
     const pct=Math.min(startPct+((endPct-startPct)*attempts/120),endPct-2);
     setProgress(document.getElementById('progressText').textContent,Math.round(pct));
-    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pollStatus',requestId,modelPath})});
+    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pollStatus',requestId,modelPath,statusUrl:statusUrl||null,responseUrl:responseUrl||null})});
     if(!res.ok)continue;
     const data=await res.json();
     if(data.status==='COMPLETED')return data.imageUrl||data.videoUrl||null;
