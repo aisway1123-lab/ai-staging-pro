@@ -60,7 +60,9 @@ export default async function handler(req, res) {
     const body = { prompt: fullPrompt, image_urls: [imageUrl], lora_scale: 0.75, guidance_scale: 2.1, num_inference_steps: 40, num_images: 1, output_format: "png", enable_safety_checker: true };
 
     try {
-      const submitRes = await fetch('https://fal.run/fal-ai/flux-2-lora-gallery/apartment-staging', {
+      // 使用 queue.fal.run 非同步提交，立即取得 request_id，不等待生成結果
+      // fal.run 是同步等待（會超時），queue.fal.run 是非同步排隊（立即回傳）
+      const submitRes = await fetch('https://queue.fal.run/fal-ai/flux-2-lora-gallery/apartment-staging', {
         method: 'POST',
         headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -71,7 +73,7 @@ export default async function handler(req, res) {
       }
       const result = await submitRes.json();
       if (result.request_id) return res.status(200).json({ requestId: result.request_id });
-      return res.status(200).json({ imageUrl: result.images?.[0]?.url });
+      return res.status(500).json({ error: '效果圖提交未取得 request_id' });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -83,13 +85,13 @@ export default async function handler(req, res) {
     if (!requestId || !modelPath) return res.status(400).json({ error: '缺少參數' });
 
     try {
-      const statusUrl = `https://fal.run/${modelPath}/requests/${requestId}/status`;
+      const statusUrl = `https://queue.fal.run/${modelPath}/requests/${requestId}/status`;
       const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
       if (!statusRes.ok) return res.status(200).json({ status: 'IN_PROGRESS' });
       const status = await statusRes.json();
 
       if (status.status === 'COMPLETED') {
-        const resultRes = await fetch(`https://fal.run/${modelPath}/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
+        const resultRes = await fetch(`https://queue.fal.run/${modelPath}/requests/${requestId}`, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
         const resultData = await resultRes.json();
         const imageUrl = resultData.images?.[0]?.url || resultData.image?.url || null;
         return res.status(200).json({ status: 'COMPLETED', imageUrl });
