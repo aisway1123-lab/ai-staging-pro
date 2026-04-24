@@ -144,7 +144,7 @@ export default async function handler(req, res) {
     PeriodType:      plan.periodType,
     PeriodPoint:     periodPoint,
     PeriodStartType: '2',              // 立即執行委託金額授權
-    PeriodTimes:     '36',             // 36 期（CAU 開通後改為 NE）
+    PeriodTimes:     'NE',             // 無限期（CAU 已開通）
     PayerEmail:      userEmail,
     EmailModify:     '0',              // 不允許修改 Email
     PaymentInfo:     'Y',

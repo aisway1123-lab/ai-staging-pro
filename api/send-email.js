@@ -431,6 +431,50 @@ export default async function handler(req, res) {
 </html>`;
   }
 
+  else if (type === 'subscription_card_issue') {
+    subject = '【AI Staging Pro】您的訂閱信用卡需要更新';
+    html = `
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F7F5F0;font-family:'DM Sans',sans-serif;">
+  <div style="max-width:560px;margin:40px auto;background:#ffffff;border:1px solid rgba(26,26,24,0.1);">
+    <div style="background:#8A4A3E;padding:32px;text-align:center;">
+      <div style="color:#F5C4A0;font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;">AI STAGING PRO</div>
+      <div style="color:white;font-size:22px;font-weight:500;">信用卡狀態異常通知</div>
+    </div>
+    <div style="padding:40px 36px;">
+      <p style="font-size:15px;color:#1A1A18;line-height:1.8;margin-bottom:20px;">您好，</p>
+      <p style="font-size:15px;color:#3D3D3A;line-height:1.8;margin-bottom:24px;">
+        您的訂閱方案所綁定的信用卡發生狀態異動（換卡、停卡或遺失重製），可能導致後續自動扣款失敗或訂閱中斷。
+      </p>
+      <div style="background:#FEF0EE;border-left:3px solid #C04B3A;padding:20px 24px;margin-bottom:24px;">
+        <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#C04B3A;margin-bottom:8px;">需要您的操作</div>
+        <p style="font-size:13px;color:#3D3D3A;line-height:1.9;margin:0;">
+          請盡快透過 LINE 聯繫客服，重新綁定有效的信用卡，以確保訂閱服務不中斷。
+        </p>
+      </div>
+      <div style="text-align:center;margin-bottom:32px;">
+        <a href="https://line.me/R/ti/p/@536vcequ" style="display:inline-block;background:#2C4A3E;color:white;padding:14px 36px;text-decoration:none;font-size:12px;letter-spacing:3px;text-transform:uppercase;">
+          聯繫客服重新綁卡
+        </a>
+      </div>
+      <p style="font-size:13px;color:#8A8880;line-height:1.8;">
+        如有任何問題，歡迎透過 LINE 聯繫我們：<a href="https://line.me/R/ti/p/@536vcequ" style="color:#2C4A3E;">@536vcequ</a>
+      </p>
+    </div>
+    <div style="background:#F0EDE6;padding:20px;text-align:center;border-top:1px solid rgba(26,26,24,0.1);">
+      <div style="font-size:11px;color:#8A8880;line-height:1.8;">
+        AI Staging Pro｜空屋變夢想家<br>
+        <a href="https://www.aistaging.pro/terms.html" style="color:#8A8880;">服務條款</a>　|　
+        <a href="https://www.aistaging.pro/terms.html#privacy" style="color:#8A8880;">隱私政策</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
   else {
     return res.status(400).json({ error: '不支援的 email 類型' });
   }
