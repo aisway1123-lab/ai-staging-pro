@@ -47,16 +47,16 @@ export default async function handler(req, res) {
       multi_purpose: "Room type: Multi-purpose Room. A flexible space designed for guests, hobbies, or light work — not a dedicated bedroom or office. A compact sofa bed, daybed, or floor cushion seating serves as the focal point, not a full bed. Keep floor space open and uncluttered. Add minimal lightweight storage or a small side table only if space allows. The space should feel versatile and airy."
     };
 
-    const A_Structure = `Stage this empty room with furniture and decor matching the style above. Replace floor surface with a new seamless material appropriate to the selected style — do not preserve the original floor. Replace ceiling fixtures with one single style-appropriate light fixture that best suits the room type — this may be a pendant light, flush mount, track light, recessed light, or other ceiling-mounted fixture. Do not combine multiple different fixture types. Remove all wires, cables, clutter, and non-structural objects from walls. Keep all walls, windows, and doors exactly as shown.`;
+    const A_Structure = `Stage this empty room with furniture and decor matching the style below. Replace floor with style-appropriate material. Replace ceiling fixture with one single style-appropriate light. Preserve exact architectural geometry, proportions, and opening positions without modification. Keep all walls, windows, and doors exactly as shown. Do not alter their structure, size, position, or quantity. Remove all wires, cables, clutter, and non-structural objects from walls.`;
     const E_Presentation = `Interior staging visualization. High realism, professional real estate presentation. Designed to look like a model home. Visually appealing, aspirational, and marketable. Ceiling remains clean and simple, appropriate to the selected style.`;
-    const F_Negative = `Do not include: people, animals, text, watermark, fantasy, cartoon, new windows, new doors. Do not add any windows that do not exist in the original image. Do not add curtains, drapes, or window treatments to walls, doorways, or openings that are not windows. Do not fill in, block, or alter doorways, corridors, passageways, or any architectural openings.`;
+    const F_Negative = `Do not add doorways, or openings that are not windows. Do not fill in, block, or alter any doorways or architectural openings. Do not include: people, animals, text, watermark, fantasy, cartoon. Do not add curtains, drapes, or window treatments to walls, doorways, or openings that are not windows.`;
 
     let dynamicPrompt = '';
     if (USE_VISION_PROMPT && visionFeatures) {
       if (visionFeatures.has_exposed_wires) dynamicPrompt += ' Remove all exposed wires and cables from walls and ceiling.';
       if (visionFeatures.has_builtin_wardrobe) dynamicPrompt += ' If there is an existing built-in wardrobe, retain its position and restyle it to match the selected style.';
     }
-    const fullPrompt = `${STYLE_PROMPTS[styleKey]} ${A_Structure} ${ROOM_PROMPTS[roomKey]} ${E_Presentation} ${F_Negative}${dynamicPrompt} 8K resolution, ultra high definition.`;
+    const fullPrompt = `${A_Structure} ${STYLE_PROMPTS[styleKey]} ${ROOM_PROMPTS[roomKey]} ${E_Presentation} ${F_Negative}${dynamicPrompt} 8K resolution, ultra high definition.`;
     const body = { prompt: fullPrompt, image_urls: [imageUrl], lora_scale: 0.75, guidance_scale: 2.1, num_inference_steps: 40, num_images: 1, output_format: "png", enable_safety_checker: true };
 
     try {
