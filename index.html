@@ -1002,13 +1002,14 @@ async function onLoginSafe(user){
 }
 async function onLogin(user){
   currentUser=user;
-  const{data,error}=await _sb.from('profiles').select('*').eq('id',user.id).single();
-  currentProfile=data||null;
-  if(currentProfile){
-    try{
-      const{data:credits}=await _sb.rpc('get_available_credits',{p_user_id:user.id});
-      if(credits!==null)currentProfile.credits=credits;
-    }catch(e){}
+  // 兩個查詢平行發出，縮短等待時間（從串行 2-4 秒 → 平行取最長約 1-2 秒）
+  const[profileRes,creditsRes]=await Promise.allSettled([
+    _sb.from('profiles').select('*').eq('id',user.id).single(),
+    _sb.rpc('get_available_credits',{p_user_id:user.id})
+  ]);
+  currentProfile=profileRes.status==='fulfilled'?profileRes.value.data||null:null;
+  if(currentProfile&&creditsRes.status==='fulfilled'&&creditsRes.value.data!==null){
+    currentProfile.credits=creditsRes.value.data;
   }
   updateHeaderUI();
   await loadAnnouncements();
