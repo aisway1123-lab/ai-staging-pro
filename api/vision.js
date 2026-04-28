@@ -64,7 +64,8 @@ export default async function handler(req, res) {
   "summary": "一句話總結（繁體中文，20字以內）",
   "suggestions": ["建議1", "建議2"],
   "has_exposed_wires": true | false,
-  "has_builtin_wardrobe": true | false
+  "has_builtin_wardrobe": true | false,
+  "has_multiple_openings": true | false
 }
 
 評估標準（嚴格執行）：
@@ -96,6 +97,10 @@ has_exposed_wires：牆面或天花板是否有裸露電線、線管或裸露線
 has_builtin_wardrobe：牆面是否有崁入式衣櫃、書櫃或固定收納櫃
 - true：有崁入式固定收納結構
 - false：無崁入式固定收納結構
+
+has_multiple_openings：空間內是否有兩個或以上的通道、門框、開口（不含窗戶）
+- true：有兩個或以上的門框、通道、走廊開口或拱門
+- false：只有一個或沒有門框/通道
 
 suggestions：針對 warn 或 fail 給具體可行的建議，最多2條，繁體中文。若亮度不均勻，建議「拍攝時確保室內燈光全開，避免逆光或單側強光」`
             }
