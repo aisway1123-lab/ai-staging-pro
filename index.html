@@ -912,8 +912,8 @@ let visionFeatures=null;
 
 async function initAuth(){
   let loginInProgress=false;
-  // ③ 樂觀渲染：從 localStorage 直接讀 session，立即顯示已登入 UI
-  // 不等網路，避免切換頁面時的 3-5 秒閃爍；currentProfile 尚未載入，等 onLogin 完成後更新
+  // 樂觀渲染：從 localStorage 直接讀 session，立即顯示已登入 UI
+  // 不等網路，避免切換頁面時的閃爍；currentProfile 尚未載入，等 onLogin 完成後更新
   try{
     const _lsRaw=localStorage.getItem('sb-jyvojuswdruexgxsxarl-auth-token');
     if(_lsRaw){
@@ -921,7 +921,8 @@ async function initAuth(){
       if(_lsUser){currentUser=_lsUser;updateHeaderUI();}
     }
   }catch(e){}
-  // ① 先掛監聽器，確保 TOKEN_REFRESH_FAILED 在 getSession hang 期間也能被捕捉
+  // onAuthStateChange 掛上後會立即 fire INITIAL_SESSION（已登入）或 SIGNED_OUT（未登入）
+  // 不再另外呼叫 getSession，避免 getSession 與 SIGNED_IN 事件重複觸發 onLogin 兩次
   _sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_OUT'){onLogout();return;}
     // Token 刷新失敗：自動清除狀態並提示重新登入
@@ -933,10 +934,25 @@ async function initAuth(){
       showToast('登入已逾時，請重新登入');
       return;
     }
-    if((event==='SIGNED_IN')&&session?.user&&!loginInProgress){
+    // INITIAL_SESSION：頁面初次載入時的 session 狀態，等同原本 getSession 的角色
+    if(event==='INITIAL_SESSION'&&session?.user&&!loginInProgress){
       loginInProgress=true;
       await onLoginSafe(session.user);
-      // 偵測 action=trial，打開試用申請上傳面板
+      // 已登入用戶直接進來時偵測 action=trial
+      const urlParams=new URLSearchParams(window.location.search);
+      if(urlParams.get('action')==='trial'){
+        window.history.replaceState({},'','/');
+        openAuth();
+        auTab('trial');
+        showTrialLoggedSection();
+      }
+      loginInProgress=false;
+      return;
+    }
+    // SIGNED_IN：OAuth redirect 或主動登入後觸發
+    if(event==='SIGNED_IN'&&session?.user&&!loginInProgress){
+      loginInProgress=true;
+      await onLoginSafe(session.user);
       const urlParams=new URLSearchParams(window.location.search);
       if(urlParams.get('action')==='trial'){
         window.history.replaceState({},'','/');
@@ -953,33 +969,6 @@ async function initAuth(){
       currentUser=session.user;
     }
   });
-
-  // ② getSession 加 5 秒 timeout，避免 session 過期時 refresh hang 住整個初始化
-  let session=null;
-  try{
-    const result=await Promise.race([
-      _sb.auth.getSession(),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('getSession timeout')),5000))
-    ]);
-    session=result?.data?.session||null;
-  }catch(e){
-    console.warn('initAuth getSession failed or timed out:',e.message);
-    // session 狀態不明，等 onAuthStateChange 的事件決定（TOKEN_REFRESH_FAILED 或 SIGNED_IN）
-  }
-
-  if(session?.user){
-    loginInProgress=true;
-    await onLoginSafe(session.user);
-    loginInProgress=false;
-    // 頁面初次載入時也偵測（已登入用戶直接進來）
-    const urlParams=new URLSearchParams(window.location.search);
-    if(urlParams.get('action')==='trial'){
-      window.history.replaceState({},'','/');
-      openAuth();
-      auTab('trial');
-      showTrialLoggedSection();
-    }
-  }
 }
 // onLogin 的安全 wrapper：加 8 秒整體 timeout
 // timeout 後確保 currentUser 至少有值，避免 UI 卡死在未登入狀態
