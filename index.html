@@ -898,6 +898,9 @@ input[type="file"] { display: none; }
   </div>
 </div>
 
+<!-- 公告系統 -->
+<script src="/announcement.js"></script>
+
 <script>
 const FAL_API_KEY = ""; // 已移至後端，前台不使用
 const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -1613,7 +1616,5 @@ function copyReferralCode(){
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
 initAuth();
 </script>
-<!-- 公告系統 -->
-<script src="/announcement.js"></script>
 </body>
 </html>

@@ -226,6 +226,9 @@ header{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 48px;height:64p
 
 <div class="toast" id="toast"></div>
 
+<!-- 公告系統 -->
+<script src="/announcement.js"></script>
+
 <script>
 const _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 let currentUser = null;
@@ -542,7 +545,5 @@ function showToast(msg){
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeLightbox(); });
 init();
 </script>
-<!-- 公告系統 -->
-<script src="/announcement.js"></script>
 </body>
 </html>
