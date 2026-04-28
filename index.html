@@ -918,7 +918,13 @@ async function initAuth(){
     const _lsRaw=localStorage.getItem('sb-jyvojuswdruexgxsxarl-auth-token');
     if(_lsRaw){
       const _lsUser=JSON.parse(_lsRaw)?.user;
-      if(_lsUser){currentUser=_lsUser;updateHeaderUI();}
+      if(_lsUser){
+        currentUser=_lsUser;
+        // 讀取上次快取的 profile 顯示資料，讓點數立即顯示不需等網路
+        const _lsProfile=localStorage.getItem('asp-profile-cache');
+        if(_lsProfile) currentProfile=JSON.parse(_lsProfile);
+        updateHeaderUI();
+      }
     }
   }catch(e){}
   // onAuthStateChange 掛上後會立即 fire INITIAL_SESSION（已登入）或 SIGNED_OUT（未登入）
@@ -1000,10 +1006,22 @@ async function onLogin(user){
   if(currentProfile&&creditsRes.status==='fulfilled'&&creditsRes.value.data!==null){
     currentProfile.credits=creditsRes.value.data;
   }
+  // 快取 profile 顯示資料到 localStorage，供下次頁面載入樂觀渲染立即顯示
+  try{
+    if(currentProfile)localStorage.setItem('asp-profile-cache',JSON.stringify({
+      credits:currentProfile.credits??0,
+      role:currentProfile.role??'',
+      referral_code:currentProfile.referral_code||''
+    }));
+  }catch(e){}
   updateHeaderUI();
   await loadAnnouncements();
 }
-function onLogout(){currentUser=null;currentProfile=null;updateHeaderUI();}
+function onLogout(){
+  currentUser=null;currentProfile=null;
+  try{localStorage.removeItem('asp-profile-cache');}catch(e){}
+  updateHeaderUI();
+}
 function updateHeaderUI(){
   const btn=document.getElementById('authTriggerBtn');
   const badge=document.getElementById('pointsDisplay');
