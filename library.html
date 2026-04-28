@@ -245,7 +245,32 @@ const ROOM_LABELS = {
 };
 
 async function init(){
-  const { data:{ session } } = await _sb.auth.getSession();
+  // ① 先掛監聽器，確保 TOKEN_REFRESH_FAILED 在 getSession hang 期間也能被捕捉
+  _sb.auth.onAuthStateChange(async(event, session) => {
+    if(event === 'SIGNED_OUT'){ window.location.href = '/'; return; }
+    // Token 刷新失敗：導回首頁重新登入
+    // signOut 本身加 2 秒 timeout，避免 session 已壞時 signOut 也 hang 住
+    if(event === 'TOKEN_REFRESH_FAILED'){
+      console.warn('Token refresh failed on library page');
+      try{ await Promise.race([_sb.auth.signOut(), new Promise(r=>setTimeout(r,2000))]); }catch(e){}
+      window.location.href = '/';
+      return;
+    }
+    if(event === 'TOKEN_REFRESHED' && session?.user) currentUser = session.user;
+  });
+
+  // ② getSession 加 5 秒 timeout，避免 session 過期時 refresh hang 住
+  let session = null;
+  try{
+    const result = await Promise.race([
+      _sb.auth.getSession(),
+      new Promise((_,rej) => setTimeout(()=>rej(new Error('getSession timeout')),5000))
+    ]);
+    session = result?.data?.session || null;
+  }catch(e){
+    console.warn('library init getSession failed or timed out:', e.message);
+  }
+
   if(!session?.user){
     document.getElementById('authGate').style.display = 'flex';
     return;
@@ -255,18 +280,6 @@ async function init(){
   document.getElementById('mainContent').style.display = 'block';
   loadLogs();
   loadCreditsHistory();
-  // 監聽 session 變化
-  _sb.auth.onAuthStateChange(async(event, session) => {
-    if(event === 'SIGNED_OUT'){ window.location.href = '/'; return; }
-    // Token 刷新失敗：導回首頁重新登入
-    if(event === 'TOKEN_REFRESH_FAILED'){
-      console.warn('Token refresh failed on library page');
-      try{ await _sb.auth.signOut(); }catch(e){}
-      window.location.href = '/';
-      return;
-    }
-    if(event === 'TOKEN_REFRESHED' && session?.user) currentUser = session.user;
-  });
 }
 
 let allCreditsHistory = [];
