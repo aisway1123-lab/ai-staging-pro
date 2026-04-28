@@ -280,6 +280,7 @@ async function init(){
   document.getElementById('mainContent').style.display = 'block';
   loadLogs();
   loadCreditsHistory();
+  await loadAnnouncements();
 }
 
 let allCreditsHistory = [];
@@ -541,5 +542,7 @@ function showToast(msg){
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeLightbox(); });
 init();
 </script>
+<!-- 公告系統 -->
+<script src="/js/announcement.js"></script>
 </body>
 </html>

@@ -999,6 +999,7 @@ async function onLogin(user){
     }catch(e){}
   }
   updateHeaderUI();
+  await loadAnnouncements();
 }
 function onLogout(){currentUser=null;currentProfile=null;updateHeaderUI();}
 function updateHeaderUI(){
@@ -1614,5 +1615,7 @@ function copyReferralCode(){
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
 initAuth();
 </script>
+<!-- 公告系統 -->
+<script src="/js/announcement.js"></script>
 </body>
 </html>

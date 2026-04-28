@@ -398,6 +398,9 @@ td.primary{color:var(--text);}
       <div id="servicesContainer"></div>
     </div>
 
+    <!-- 公告管理 -->
+    <div id="announcement-section" style="padding: 24px 32px;"></div>
+
   </div>
 </div>
 
@@ -556,6 +559,7 @@ async function doGateLogin(){
     document.getElementById('authGate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadAll();
+    await initAnnouncementAdmin();
   } catch(e){
     msgEl.textContent = e.message || '登入失敗';
   } finally {
@@ -1046,5 +1050,7 @@ async function togglePromoCode(codeId, isActive){
 }
 
 </script>
+<!-- Admin 公告管理 -->
+<script src="/js/admin-announcement.js"></script>
 </body>
 </html>
