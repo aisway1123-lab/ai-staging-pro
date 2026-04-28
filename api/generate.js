@@ -47,16 +47,42 @@ export default async function handler(req, res) {
       multi_purpose: "Room type: Multi-purpose Room. A flexible space designed for guests, hobbies, or light work — not a dedicated bedroom or office. A compact sofa bed, daybed, or floor cushion seating serves as the focal point, not a full bed. Keep floor space open and uncluttered. Add minimal lightweight storage or a small side table only if space allows. The space should feel versatile and airy."
     };
 
-    const A_Structure = `Stage this empty room with furniture and decor matching the style below. Replace floor with style-appropriate material. Replace ceiling fixture with one single style-appropriate light. Preserve exact architectural geometry, proportions, and opening positions without modification. Keep all walls, windows, and doors exactly as shown. Do not alter their structure, size, position, or quantity. All visible openings, passages, and doorways must remain as-is — do not convert any doorway or passage into a window. Remove all wires, cables, clutter, and non-structural objects from walls.`;
+    const A_Structure = `Stage this empty room with furniture and decor matching the style below. Replace floor with style-appropriate material. Replace ceiling fixture with one single style-appropriate light. Preserve exact architectural geometry, proportions, and opening positions without modification. Keep all walls, windows, and doors exactly as shown. Do not alter their structure, size, position, or quantity. Remove all wires, cables, clutter, and non-structural objects from walls.`;
     const E_Presentation = `Interior staging visualization. High realism, professional real estate presentation. Designed to look like a model home. Visually appealing, aspirational, and marketable. Ceiling remains clean and simple, appropriate to the selected style.`;
-    const F_Negative = `Do not add doorways, or openings that are not windows. Do not fill in, block, or alter any doorways or architectural openings. Do not include: people, animals, text, watermark, fantasy, cartoon. Do not add curtains, drapes, or window treatments to walls, doorways, or openings that are not windows.`;
+    const F_Negative = `Do not add any doorways, passages, or architectural openings beyond what exists in the original image. Do not fill in, block, or alter any existing doorways or architectural openings. Do not include: people, animals, text, watermark, fantasy, cartoon. Do not add curtains, drapes, or window treatments to walls, doorways, or openings that are not windows.`;
 
     let dynamicPrompt = '';
     if (USE_VISION_PROMPT && visionFeatures) {
-      if (visionFeatures.has_exposed_wires) dynamicPrompt += ' Remove all exposed wires and cables from walls and ceiling.';
-      if (visionFeatures.has_builtin_wardrobe) dynamicPrompt += ' If there is an existing built-in wardrobe, retain its position and restyle it to match the selected style.';
-      if (visionFeatures.has_multiple_openings) dynamicPrompt += ' This room has multiple doorways, passages, and openings. Every single opening must remain exactly as shown in the original image — do not add curtains, windows, or any treatment to any opening.';
+      if (visionFeatures.has_exposed_wires) {
+        dynamicPrompt += ' Remove all exposed wires and cables from walls and ceiling.';
+      }
+      if (visionFeatures.has_builtin_wardrobe) {
+        dynamicPrompt += ' If there is an existing built-in wardrobe, retain its position and restyle it to match the selected style.';
+      }
+
+      // 窗戶數量約束
+      const wc = visionFeatures.window_count;
+      if (typeof wc === 'number') {
+        if (wc === 0) {
+          dynamicPrompt += ' The original room has no windows. Do not add any.';
+        } else if (wc === 1) {
+          dynamicPrompt += ' The original room has exactly 1 window. Keep exactly 1 window in its original position, size, and shape — do not add, remove, or reposition it.';
+        } else {
+          dynamicPrompt += ` The original room has exactly ${wc} windows. All ${wc} windows must remain in their original positions, sizes, and shapes — do not add, remove, or reposition any of them.`;
+        }
+      }
+
+      // 通道數量約束
+      const pc = visionFeatures.passage_count;
+      if (typeof pc === 'number') {
+        if (pc === 1) {
+          dynamicPrompt += ' The original room has exactly 1 doorway or passage. Keep it open and in its original position — do not block, close, or alter it.';
+        } else if (pc >= 2) {
+          dynamicPrompt += ` The original room has exactly ${pc} doorways or passages. All ${pc} must remain open and in their original positions — do not block, close, or alter any of them.`;
+        }
+      }
     }
+
     const fullPrompt = `${A_Structure} ${STYLE_PROMPTS[styleKey]} ${ROOM_PROMPTS[roomKey]} ${E_Presentation} ${F_Negative}${dynamicPrompt} 8K resolution, ultra high definition.`;
     const body = { prompt: fullPrompt, image_urls: [imageUrl], lora_scale: 0.75, guidance_scale: 2.1, num_inference_steps: 40, num_images: 1, output_format: "png", enable_safety_checker: true };
 

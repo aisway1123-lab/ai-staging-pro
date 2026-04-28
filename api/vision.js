@@ -65,7 +65,8 @@ export default async function handler(req, res) {
   "suggestions": ["建議1", "建議2"],
   "has_exposed_wires": true | false,
   "has_builtin_wardrobe": true | false,
-  "has_multiple_openings": true | false
+  "window_count": 數字,
+  "passage_count": 數字
 }
 
 評估標準（嚴格執行）：
@@ -98,9 +99,16 @@ has_builtin_wardrobe：牆面是否有崁入式衣櫃、書櫃或固定收納櫃
 - true：有崁入式固定收納結構
 - false：無崁入式固定收納結構
 
-has_multiple_openings：空間內是否有兩個或以上的通道、門框、開口（不含窗戶）
-- true：有兩個或以上的門框、通道、走廊開口或拱門
-- false：只有一個或沒有門框/通道
+window_count：照片中可見的窗戶總數
+- 整數，0 起算，如實填寫實際數量，不設上限
+- 窗戶定義：牆面上有玻璃、透光、或明顯窗框的開口
+- 若窗戶被家具遮擋但仍可判斷存在，也計入
+- 若完全看不到任何窗戶，填 0
+
+passage_count：照片中可見的門框、走廊開口、拱門等通道總數（不含窗戶）
+- 整數，0 起算，如實填寫實際數量，不設上限
+- 通道定義：可供人進出的開口，包含有門板或無門板的門框、走廊入口、拱門
+- 不含窗戶、固定牆面裝飾、或純粹的凹槽
 
 suggestions：針對 warn 或 fail 給具體可行的建議，最多2條，繁體中文。若亮度不均勻，建議「拍攝時確保室內燈光全開，避免逆光或單側強光」`
             }
