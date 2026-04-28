@@ -1011,11 +1011,14 @@ async function handleSignOut(){
   closeUserMenu();
   showToast('登出中…');
   try{
-    await _sb.auth.signOut();
+    // 3 秒 timeout 保護，避免 session 過期時 signOut 請求 hang 住
+    await Promise.race([
+      _sb.auth.signOut(),
+      new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+    ]);
   }catch(e){
     console.warn('signOut warning:', e.message);
   }
-  // 登出後強制重新請求頁面（避免 cmd+r 軟刷新讀 cache 導致 UI 殘留）
   window.location.href = window.location.pathname;
 }
 document.addEventListener('click',e=>{const menu=document.getElementById('userMenu');if(!menu.contains(e.target))closeUserMenu();});
