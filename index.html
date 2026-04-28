@@ -912,6 +912,15 @@ let visionFeatures=null;
 
 async function initAuth(){
   let loginInProgress=false;
+  // ③ 樂觀渲染：從 localStorage 直接讀 session，立即顯示已登入 UI
+  // 不等網路，避免切換頁面時的 3-5 秒閃爍；currentProfile 尚未載入，等 onLogin 完成後更新
+  try{
+    const _lsRaw=localStorage.getItem('sb-jyvojuswdruexgxsxarl-auth-token');
+    if(_lsRaw){
+      const _lsUser=JSON.parse(_lsRaw)?.user;
+      if(_lsUser){currentUser=_lsUser;updateHeaderUI();}
+    }
+  }catch(e){}
   // ① 先掛監聽器，確保 TOKEN_REFRESH_FAILED 在 getSession hang 期間也能被捕捉
   _sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_OUT'){onLogout();return;}
@@ -1015,8 +1024,8 @@ function updateHeaderUI(){
     btn.textContent=currentUser.email?.split('@')[0]||'帳號';
     btn.classList.add('logged-in');
     badge.style.display='flex';
-    badge.textContent=role==='admin'?'點數：∞':`剩餘 ${credits} 點`;
-    badge.className='points-badge'+(credits<5&&role!=='admin'?' low':'');
+    badge.textContent=!currentProfile?'點數載入中':role==='admin'?'點數：∞':`剩餘 ${credits} 點`;
+    badge.className='points-badge'+(credits<5&&role!=='admin'&&currentProfile?' low':'');
     if(emailEl)emailEl.textContent=currentUser.email;
     const refEl=document.getElementById('referralCodeDisplay');
     if(refEl)refEl.textContent=currentProfile?.referral_code||'—';
