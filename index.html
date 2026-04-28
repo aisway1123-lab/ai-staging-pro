@@ -913,10 +913,10 @@ async function initAuth(){
   _sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_OUT'){onLogout();return;}
     // Token 刷新失敗：自動清除狀態並提示重新登入
-    // signOut 本身加 2 秒 timeout，避免 session 已壞時 signOut 也 hang 住
+    // signOut 加 scope:'local' 確保本地 token 一定被清除，不依賴網路連線
     if(event==='TOKEN_REFRESH_FAILED'){
       console.warn('Token refresh failed, clearing session');
-      try{await Promise.race([_sb.auth.signOut(),new Promise(r=>setTimeout(r,2000))]);}catch(e){}
+      try{await Promise.race([_sb.auth.signOut({scope:'local'}),new Promise(r=>setTimeout(r,2000))]);}catch(e){}
       onLogout();
       showToast('登入已逾時，請重新登入');
       return;
@@ -1041,11 +1041,9 @@ async function handleSignOut(){
   closeUserMenu();
   showToast('登出中…');
   try{
-    // 3 秒 timeout 保護，避免 session 過期時 signOut 請求 hang 住
-    await Promise.race([
-      _sb.auth.signOut(),
-      new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 3000))
-    ]);
+    // scope:'local' 只清除本地 localStorage token，不需聯網
+    // 解決 session hang 時 signOut 無法清除 token 導致 reload 後仍顯示已登入的問題
+    await _sb.auth.signOut({ scope: 'local' });
   }catch(e){
     console.warn('signOut warning:', e.message);
   }
