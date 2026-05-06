@@ -476,7 +476,7 @@ input[type="file"] { display: none; }
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; position: relative; min-height: 200px;
 }
-.result-box img, .result-box video { width: 100%; height: 100%; object-fit: cover; }
+.result-box img, .result-box video { width: 100%; height: 100%; object-fit: contain; }
 .result-placeholder { text-align: center; color: var(--ink-subtle); }
 .result-placeholder .ph { font-size: 28px; margin-bottom: 8px; opacity: 0.3; }
 .result-placeholder p { font-size: 11px; font-family: var(--font-mono); }
@@ -1557,7 +1557,7 @@ async function startGeneration(){
         document.getElementById('resultImg').innerHTML=`<img src="${generatedImageUrl}" alt="裝潢效果圖"><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
         document.getElementById('resultVid').innerHTML=window.skipVideo
           ? `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-muted);font-size:13px;">🧪 測試模式：略過影片生成</div>`
-          : `<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:cover;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
+          : `<video src="${generatedVideoUrl}" autoplay loop muted playsinline controls style="width:100%;height:100%;object-fit:contain;"></video><div class="wm">【${sName}｜${rName}】影像由 AI 生成，僅供參考｜AI Staging Pro</div>`;
         isGenerating=false;
         const btn=document.getElementById('genBtn');btn.disabled=false;btn.textContent='開始生成影片｜消耗 20 點';
         showToast(`✓ 完成！${sName} × ${rName}${window.skipVideo?'（測試模式）':'，已扣除 20 點'}`);
