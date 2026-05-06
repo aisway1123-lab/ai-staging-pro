@@ -221,7 +221,7 @@ export default async function handler(req, res) {
         console.log('startImage 上傳完成:', finalStartUrl);
       }
 
-      const submitRes = await fetch('https://queue.fal.run/fal-ai/kling-video/o1/pro/image-to-video', {
+      const submitRes = await fetch('https://queue.fal.run/fal-ai/kling-video/o1/image-to-video', {
         method: 'POST',
         headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -259,7 +259,7 @@ export default async function handler(req, res) {
 
     try {
       const statusUrl = clientStatusUrl
-        || `https://queue.fal.run/fal-ai/kling-video/o1/pro/image-to-video/requests/${requestId}/status`;
+        || `https://queue.fal.run/fal-ai/kling-video/o1/image-to-video/requests/${requestId}/status`;
       const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
       if (!statusRes.ok) {
         const errText = await statusRes.text();
@@ -272,7 +272,7 @@ export default async function handler(req, res) {
 
       if (statusVal === 'COMPLETED') {
         const resultUrl = clientResponseUrl
-          || `https://queue.fal.run/fal-ai/kling-video/o1/pro/image-to-video/requests/${requestId}`;
+          || `https://queue.fal.run/fal-ai/kling-video/o1/image-to-video/requests/${requestId}`;
         const resultRes = await fetch(resultUrl, { headers: { 'Authorization': `Key ${FAL_KEY}` } });
         const resultData = await resultRes.json();
         console.log('pollVideoStatus - resultData:', JSON.stringify(resultData).slice(0, 300));
