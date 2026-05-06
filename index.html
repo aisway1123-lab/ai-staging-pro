@@ -1368,12 +1368,24 @@ function runPreCheck(){
       const response=await fetch('/api/vision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:base64Image,mimeType})});
       if(!response.ok)throw new Error('Vision API 錯誤');
       const result=await response.json();
-      visionFeatures={has_exposed_wires:result.has_exposed_wires||false,has_builtin_wardrobe:result.has_builtin_wardrobe||false};
+      visionFeatures={
+        has_exposed_wires:  result.has_exposed_wires||false,
+        has_builtin_wardrobe: result.has_builtin_wardrobe||false,
+        window_count:  typeof result.window_count==='number'  ? result.window_count  : null,
+        passage_count: typeof result.passage_count==='number' ? result.passage_count : null
+      };
       renderVisionResult(pc,pb,result);
     }catch(err){
       pc.className='precheck';
       pb.innerHTML='<span style="color:var(--ink-muted);font-size:11px;">⚠ 品質分析暫時無法使用，您仍可繼續生成。</span>';
       console.warn('Vision precheck failed:',err);
+      // vision 失敗時給保守預設值，避免模型自由發揮窗簾和結構
+      visionFeatures={
+        has_exposed_wires:  false,
+        has_builtin_wardrobe: false,
+        window_count:  null,
+        passage_count: null
+      };
     }finally{checkReady();}
   })();
 }
