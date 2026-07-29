@@ -14,11 +14,21 @@ export default async function handler(req, res) {
   const { userId, cost, generationLogId } = req.body;
   if (!userId || !cost) return res.status(400).json({ error: '缺少參數' });
 
+  // 驗證身分權杖，確認發起請求的人就是 userId 本人
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: '未登入或憑證遺失' });
+
   // 用 service role key，讓後端有權限呼叫 deduct_credits_v2
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+
+  const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+  if (authErr || !authData?.user || authData.user.id !== userId) {
+    return res.status(401).json({ error: '身分驗證失敗' });
+  }
 
   // 驗證用戶存在且有資格扣點
   const { data: profile } = await supabase
