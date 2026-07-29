@@ -1081,7 +1081,7 @@ function auTab(tab){
   const titles={login:['歡迎回來','登入以繼續使用您的帳號'],register:['建立帳號','開始您的專業房產展示之旅'],trial:['免費試用申請','專屬不動產、室內設計等房地產相關行業從業者']};
   document.getElementById('auTitle').textContent=titles[tab][0];document.getElementById('auSub').textContent=titles[tab][1];clearAuMsg();
 }
-function showAuMsg(msg,type='error'){const el=document.getElementById('auMsg');el.textContent=msg;el.className='au-msg '+type;}
+function showAuMsg(msg,type='error'){const el=document.getElementById('auMsg');el.textContent=msg;el.className='au-msg '+type;el.scrollIntoView({behavior:'smooth',block:'center'});}
 function clearAuMsg(){const el=document.getElementById('auMsg');el.className='au-msg';el.textContent='';}
 function setAuLoading(btnId,loading,defaultText=''){const btn=document.getElementById(btnId);btn.disabled=loading;btn.querySelector('span').innerHTML=loading?'<span class="au-spin"></span>處理中...':defaultText;}
 async function oauthLogin(provider){clearAuMsg();const{error}=await _sb.auth.signInWithOAuth({provider,options:{redirectTo:window.location.origin+'/'}});if(error)showAuMsg(error.message||'登入失敗，請稍後再試');}
@@ -1231,7 +1231,7 @@ async function doTrialApply(){
     });
     const confirmData=await confirmRes.json();
     if(!confirmData.success)throw new Error(confirmData.error||'申請提交失敗');
-    showAuMsg('申請已提交！我們將在 1–2 個工作天內審核並通知您。審核結果將寄送至您的信箱，也可加 LINE 客服 @536vcequ 詢問進度。','success');
+    showAuMsg('申請已提交！請先至信箱點擊驗證連結完成帳號驗證，我們將在 1–2 個工作天內審核您的試用資格並通知您。審核結果將寄送至您的信箱，也可加 LINE 客服 @536vcequ 詢問進度。','success');
   }catch(e){showAuMsg(e.message||'提交失敗，請稍後再試');}
   finally{setAuLoading('trialBtn',false,'提交申請');}
 }
@@ -1243,7 +1243,10 @@ async function doResetPassword(){
 }
 async function deductCredits(cost){
   if(currentProfile?.role==='admin')return true;
-  const r=await fetch('/api/deduct-credits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:currentUser.id,cost})});
+  const{data:sessionData}=await _sb.auth.getSession();
+  const token=sessionData?.session?.access_token;
+  if(!token)return false;
+  const r=await fetch('/api/deduct-credits',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({userId:currentUser.id,cost})});
   const data=await r.json();
   if(!r.ok||!data.success)return false;
   if(currentProfile&&data.remaining!==null)currentProfile.credits=data.remaining;
