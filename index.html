@@ -1286,17 +1286,17 @@ function processImage(file){
     showToast('請上傳 JPG、PNG 或 WebP 格式的圖片');
     return;
   }
-  // 點數不足：阻擋，引導購買
+  // 試用審核中：優先判斷，避免與下方「點數不足」判斷衝突（trial_pending 必為 0 點）
   const role = currentProfile?.role;
   const credits = currentProfile?.credits ?? 0;
+  if(role === 'trial_pending'){
+    showToast('您的試用申請審核中，請稍候通知');
+    return;
+  }
+  // 點數不足：阻擋，引導購買
   if(role !== 'admin' && credits < 20){
     showToast('點數不足！即將前往購買頁面…');
     setTimeout(()=>window.location.href='/pricing.html', 1500);
-    return;
-  }
-  // 試用審核中
-  if(role === 'trial_pending'){
-    showToast('您的試用申請審核中，請稍候通知');
     return;
   }
 
